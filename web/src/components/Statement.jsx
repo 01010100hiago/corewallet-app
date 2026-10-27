@@ -42,9 +42,20 @@ export default function Statement() {
   const custom = useCategories().list;
   // Links de fora podem abrir o extrato já filtrado (?situacao=archived).
   const [params] = useSearchParams();
-  const initial = SITUATIONS.includes(params.get("situacao")) ? { ...EMPTY, status: params.get("situacao") } : EMPTY;
+  const urlStatus = SITUATIONS.includes(params.get("situacao")) ? params.get("situacao") : "all";
+  const initial = { ...EMPTY, status: urlStatus };
   const [filters, setFilters] = useState(initial);
   const [applied, setApplied] = useState(initial); // `filters` com a busca já esperando a pessoa parar de digitar
+  // A URL manda na situação quando ela MUDA com o extrato aberto (link, voltar, avançar). Depois de
+  // aberto, o que a pessoa escolhe na tela vale até a URL mudar de novo.
+  const lastUrlStatus = useRef(urlStatus);
+  useEffect(() => {
+    if (lastUrlStatus.current === urlStatus) return;
+    lastUrlStatus.current = urlStatus;
+    const apply = (f) => (f.status === urlStatus ? f : { ...f, status: urlStatus });
+    setFilters(apply);
+    setApplied(apply);
+  }, [urlStatus]);
   const [page, setPage] = useState(null); // { transactions, totals, nextCursor } | null enquanto carrega
   const [loadError, setLoadError] = useState("");
   const [moreBusy, setMoreBusy] = useState(false);

@@ -30,13 +30,17 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       # Cookie "Secure" só funciona em HTTPS. Use true quando for publicar.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # O nginx fica na frente da API: confiar no IP que ele repassa.
-      TRUST_PROXY: 1
+      # Quantos proxies ficam entre o navegador e a API (o nginx do web conta 1). Com um túnel na
+      # frente (cloudflared, Cloudflare) use 2; com valor menor todos dividem o mesmo IP nos limites.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Verificação automática do CoreWallet (usada quando não há chaves do Turnstile): vazios = padrão.
+      CAPTCHA_POW: ${CAPTCHA_POW:-}
+      POW_MAX_NUMBER: ${POW_MAX_NUMBER:-}
       # Login com Google e captcha da Cloudflare: vazios = desligados.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
-      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/DEPLOY.md.
+      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/CONFIGURACAO.md.
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
       EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-}

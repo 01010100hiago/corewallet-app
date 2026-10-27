@@ -1,7 +1,7 @@
 #!/bin/sh
 # Backup do banco do CoreWallet no lab: um arquivo compactado com a data em backups/,
 # mantendo os 14 mais recentes. Roda de dentro de /srv/corewallet.
-# Restaurar: veja docs/DEPLOY.md ("Backup e volta atrás").
+# Restaurar: veja docs/DEPLOY.md, seção "Backup (opcional)".
 set -eu
 cd "$(dirname "$0")"
 mkdir -p backups

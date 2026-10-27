@@ -1,6 +1,7 @@
 import { describe, test, expect, vi } from "vitest";
 import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { renderPage, fakeAuth } from "../test/render.jsx";
 import History from "./History.jsx";
@@ -305,6 +306,37 @@ describe("Histórico: extrato", () => {
     renderPage(<History />, { path: "/history", route: "/history?situacao=%24ne" });
     await screen.findByText("Nenhum lançamento ainda");
     expect(searches(get2)[0]).toEqual({ status: "all", limit: 30 });
+  });
+
+  test("mudar ?situacao na URL com o extrato aberto (link, voltar, avançar) atualiza o filtro", async () => {
+    const get = stub(() => ({ transactions: [], totals: { count: 0, totalIn: 0, totalOut: 0 }, nextCursor: null }));
+    renderPage(
+      <>
+        <Link to="/history?situacao=archived">Ver arquivados</Link>
+        <Link to="/history">Ver tudo</Link>
+        <History />
+      </>,
+      { path: "/history", route: "/history" }
+    );
+    await screen.findByText("Nenhum lançamento ainda");
+    expect(screen.getByLabelText("Situação")).toHaveValue("all");
+
+    await userEvent.click(screen.getByRole("link", { name: "Ver arquivados" }));
+    await waitFor(() => expect(screen.getByLabelText("Situação")).toHaveValue("archived"));
+    await waitFor(() => expect(last(get)).toEqual({ status: "archived", limit: 30 }));
+
+    await userEvent.click(screen.getByRole("link", { name: "Ver tudo" }));
+    await waitFor(() => expect(screen.getByLabelText("Situação")).toHaveValue("all"));
+    await waitFor(() => expect(last(get)).toEqual({ status: "all", limit: 30 }));
+  });
+
+  test("escolher a situação na tela não é desfeito por um novo render (a URL não manda depois de aberta)", async () => {
+    const get = stub(() => ({ transactions: [], totals: { count: 0, totalIn: 0, totalOut: 0 }, nextCursor: null }));
+    renderPage(<History />, { path: "/history", route: "/history?situacao=archived" });
+    await screen.findByText("Nenhum lançamento com esses filtros");
+    await userEvent.selectOptions(screen.getByLabelText("Situação"), "deleted");
+    await waitFor(() => expect(last(get)).toEqual({ status: "deleted", limit: 30 }));
+    expect(screen.getByLabelText("Situação")).toHaveValue("deleted");
   });
 
   test("aba desconhecida na URL cai no Extrato", async () => {

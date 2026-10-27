@@ -14,6 +14,7 @@ import { createGoogleVerifier } from "./services/googleService.js";
 import { createMailer } from "./services/mailer.js";
 import { createEmailVerification } from "./services/emailVerificationService.js";
 import { createTwoFactor } from "./services/twoFactorService.js";
+import { isDbUnavailable } from "./lib/dbErrors.js";
 
 // Mensagem que pode ir para o cliente. Erros do parser de JSON trazem detalhes
 // internos, então viram frases fixas; o resto só aparece se for marcado como público.
@@ -63,9 +64,11 @@ export function createApp(env, deps = {}) {
   // Erro inesperado: registra no log e devolve mensagem genérica.
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
-    const status = err.status || 500;
+    const unavailable = isDbUnavailable(err);
+    const status = unavailable ? 503 : err.status || 500;
     if (status >= 500) console.error(err);
-    const body = { message: publicMessage(err, status) };
+    const body = { message: unavailable ? "Serviço indisponível no momento. Tente de novo em instantes." : publicMessage(err, status) };
+    if (unavailable) res.set("Retry-After", "3");
     // O detalhe por campo vai em qualquer erro do cliente (422 de validação, 409 de conflito), nunca em 5xx.
     if (status < 500 && err.errors) body.errors = err.errors;
     // Código curto para a tela reagir (ex.: email ainda não confirmado).

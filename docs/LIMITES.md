@@ -1,0 +1,43 @@
+# Limites conhecidos
+
+O que ainda não existe ou funciona de forma simplificada.
+
+## Conta e acesso
+
+- **Não existe recuperação de senha** nem exportar os dados ou excluir a conta; a tela diz isso.
+- O cadastro avisa quando o email já existe (409). O limite de cadastros por IP reduz o abuso.
+- O limite de tentativas por conta pode ser usado para travar o login de alguém por alguns minutos, mas só a partir do
+  mesmo IP da pessoa, porque a chave é IP + email.
+- Não há limite por conta somando vários IPs. Com 2FA ativo, a trava por conta compensa.
+- **Limites e controles ficam na memória da API:** os de tentativa, os desafios do 2FA e os desafios já usados da
+  verificação automática (até 20 mil). Servem para uma instância; com várias, troque por Redis. Reiniciar a API zera
+  essa contagem, mas os desafios continuam vencendo em 5 minutos, e a trava de 15 minutos do 2FA fica no banco.
+- A lista de dispositivos mostra o IP pela metade e navegador e sistema lidos do `User-Agent`, uma leitura aproximada.
+
+## Datas e valores
+
+- Os meses, o dia e a hora de cada lançamento seguem o horário de Brasília (UTC-3 fixo). Quem usa outro fuso vê as
+  datas em Brasília.
+- A data de um lançamento é a da criação e não pode ser editada. Trocar o tipo (receita ou despesa) exige excluir e
+  criar de novo.
+- As datas aceitas nos filtros vão de 2000 a 2100.
+
+## Listas e limites de tamanho
+
+- Cada mês mostra no máximo 500 lançamentos; acima disso a tela avisa e os totais continuam corretos.
+- O extrato mostra 30 por vez ("Carregar mais"); os totais valem para todos os que combinam com o filtro.
+- O registro de alterações mostra os 100 eventos mais recentes, e as listas de excluídos e arquivados mostram até 200
+  cada. A tela avisa quando há mais; restaurar ou desarquivar traz os mais antigos.
+- A análise cobre no máximo 12 meses. O mês atual ainda está em andamento (a tela avisa), então a despesa média e a
+  comparação com o mês anterior o incluem pela metade.
+
+## Histórico
+
+- Lançamentos criados antes do histórico existir não têm o evento "criado"; a tela diz isso.
+- **Gravações em mais de um passo, sem transação do banco** (o Mongo roda sem réplica):
+  - O histórico é gravado logo depois da alteração. Se o servidor cair entre as duas gravações, a alteração vale e
+    o último evento pode faltar.
+  - Apagar uma categoria move os lançamentos, grava o histórico e só então apaga a categoria. Se o servidor cair no
+    meio, alguns lançamentos podem ter mudado de categoria sem o evento correspondente; como a categoria só some depois
+    de tudo movido, dá para repetir a exclusão. Um lançamento criado durante a exclusão é conferido de novo e vai para
+    "Outros" se a categoria já sumiu.

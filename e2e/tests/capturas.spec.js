@@ -10,6 +10,14 @@ test.skip(!process.env.E2E_SCREENSHOTS, "defina E2E_SCREENSHOTS=1 para gerar as 
 const OUT = new URL("../../docs/img/", import.meta.url).pathname;
 const DATABASE = process.env.E2E_DATABASE_URI ?? "mongodb://127.0.0.1:27017/corewallet_e2e";
 
+// Página inteira, mas com no máximo MAX_HEIGHT px de altura (CSS): telas longas ficam do tamanho
+// de uma tela de verdade ao abrir a imagem grande, em vez de uma tira de milhares de pixels.
+const MAX_HEIGHT = 1500;
+async function shot(page, name) {
+  const { width, height } = await page.evaluate(() => ({ width: document.documentElement.clientWidth, height: document.documentElement.scrollHeight }));
+  await page.screenshot({ path: `${OUT}${name}.png`, fullPage: true, clip: { x: 0, y: 0, width, height: Math.min(height, MAX_HEIGHT) } });
+}
+
 const SEED = [
   ["input", "4200", "Salário", "salario"],
   ["input", "350", "Freelance de logo", "freelance"],
@@ -80,7 +88,7 @@ test("capturas de tela", async ({ browser }) => {
   const user = newUser("Marina");
   await register(page, { ...user, name: "Marina Duarte" });
   await seed(page, desktop);
-  await page.screenshot({ path: `${OUT}inicio.png`, fullPage: true });
+  await shot(page, "inicio");
 
   await page.getByRole("link", { name: /Nova despesa/ }).click();
   await expect(page.getByRole("heading", { name: "Nova despesa" })).toBeVisible();
@@ -92,29 +100,30 @@ test("capturas de tela", async ({ browser }) => {
   await seedHistory(desktop);
   await page.goto("/analysis");
   await expect(page.getByRole("region", { name: "Indicadores do período" })).toBeVisible();
-  await page.screenshot({ path: `${OUT}analise.png`, fullPage: true });
+  await shot(page, "analise");
 
   await page.goto("/history");
   await expect(page.getByRole("region", { name: "Extrato" }).getByRole("listitem").first()).toBeVisible();
-  await page.screenshot({ path: `${OUT}historico.png`, fullPage: true });
+  await shot(page, "historico");
 
   await page.goto("/history?aba=alteracoes");
   await expect(page.getByRole("region", { name: "Alterações" })).toBeVisible();
-  await page.screenshot({ path: `${OUT}alteracoes.png`, fullPage: true });
+  await shot(page, "alteracoes");
 
   await page.goto("/categories");
   await expect(page.getByRole("region", { name: "Categorias de despesas" })).toBeVisible();
-  await page.screenshot({ path: `${OUT}categorias.png`, fullPage: true });
+  await shot(page, "categorias");
 
   await page.goto("/account");
   await expect(page.getByRole("region", { name: "Dispositivos conectados" }).getByRole("listitem")).toHaveCount(1);
-  await page.screenshot({ path: `${OUT}conta.png`, fullPage: true });
+  await shot(page, "conta");
   await desktop.close();
 
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo", deviceScaleFactor: 2, isMobile: true });
   const mobile = await phone.newPage();
   await register(mobile, newUser("Caio"));
   await seed(mobile, phone);
-  await mobile.screenshot({ path: `${OUT}inicio-celular.png`, fullPage: true });
+  // Celular: só a tela do aparelho (390x844), como a pessoa vê ao abrir, sem rolar.
+  await mobile.screenshot({ path: `${OUT}inicio-celular.png` });
   await phone.close();
 });

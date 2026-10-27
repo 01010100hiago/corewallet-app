@@ -39,11 +39,11 @@ services:
       # tentativas conta por pessoa. Com 1, todo mundo teria o IP do cloudflared.
       TRUST_PROXY: "2"
       # Login com Google e captcha: vazios = desligados (só login por senha). Para ligar, ponha
-      # as chaves reais no .env (veja docs/DEPLOY.md no repositório).
+      # as chaves reais no .env (veja docs/CONFIGURACAO.md no repositório).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
-      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/DEPLOY.md.
+      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/CONFIGURACAO.md.
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
       EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-}

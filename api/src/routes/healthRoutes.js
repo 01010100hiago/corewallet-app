@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { isDbConnected } from "../config/database.js";
+import { pingDb } from "../config/database.js";
 
 const healthRouter = Router();
 
-healthRouter.get("/health", (req, res) => {
-  const db = isDbConnected() ? "up" : "down";
-  res.status(db === "up" ? 200 : 503).json({ status: db === "up" ? "ok" : "degraded", db });
+healthRouter.get("/health", async (req, res) => {
+  const up = await pingDb();
+  res.status(up ? 200 : 503).json({ status: up ? "ok" : "degraded", db: up ? "up" : "down" });
 });
 
 export default healthRouter;
