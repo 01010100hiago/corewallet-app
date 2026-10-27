@@ -54,9 +54,14 @@ export default function SpendingChart({ categories, custom = [] }) {
         <h2 id="spending-title" className="text-lg font-semibold text-pine-900">
           Despesas por categoria
         </h2>
-        <Link to="/analysis" className="text-sm font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
-          Ver análise financeira
-        </Link>
+        <span className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link to="/categories" className="text-sm font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
+            Gerenciar categorias
+          </Link>
+          <Link to="/analysis" className="text-sm font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
+            Ver análise financeira
+          </Link>
+        </span>
       </div>
 
       <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">

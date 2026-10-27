@@ -95,8 +95,16 @@ test("capturas de tela", async ({ browser }) => {
   await page.screenshot({ path: `${OUT}analise.png`, fullPage: true });
 
   await page.goto("/history");
-  await expect(page.getByRole("region", { name: "Alterações" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Extrato" }).getByRole("listitem").first()).toBeVisible();
   await page.screenshot({ path: `${OUT}historico.png`, fullPage: true });
+
+  await page.goto("/history?aba=alteracoes");
+  await expect(page.getByRole("region", { name: "Alterações" })).toBeVisible();
+  await page.screenshot({ path: `${OUT}alteracoes.png`, fullPage: true });
+
+  await page.goto("/categories");
+  await expect(page.getByRole("region", { name: "Categorias de despesas" })).toBeVisible();
+  await page.screenshot({ path: `${OUT}categorias.png`, fullPage: true });
 
   await page.goto("/account");
   await expect(page.getByRole("region", { name: "Dispositivos conectados" }).getByRole("listitem")).toHaveCount(1);

@@ -8,6 +8,14 @@ export function connectionState({ protocol, hostname }) {
   return local ? "local" : "insecure";
 }
 
+// Frase curta sobre a conexão para as telas de proteção: só promete HTTPS quando é HTTPS de verdade.
+const FACTS = {
+  https: { lead: "Conexão criptografada.", text: "O que você envia viaja por HTTPS." },
+  local: { lead: "Conexão local.", text: "Aqui o que você envia não sai do computador." },
+  insecure: { lead: "Conexão sem HTTPS.", text: "O que você envia viaja sem criptografia." },
+};
+export const connectionFact = (location) => FACTS[connectionState(location)];
+
 // Passo "Conexão" mostrado no splash e na tela de entrada com o Google.
 const STEPS = {
   https: { label: "Conexão criptografada (HTTPS)", state: "done" },

@@ -15,6 +15,7 @@ import {
   isMonthKey,
   monthRange,
   monthKeyOf,
+  dayKeyOf,
   shiftMonth,
   monthLabel,
   categoryOptions,
@@ -205,6 +206,10 @@ test("mês: formato, limites em Brasília, ida e volta", () => {
 
   assert.equal(monthKeyOf("2026-11-01T01:30:00Z"), "2026-10");
   assert.equal(monthKeyOf("2026-11-01T03:00:00Z"), "2026-11");
+  // O dia também é o de Brasília: 02:59 UTC ainda é o dia anterior, 03:00 UTC já é o seguinte.
+  assert.equal(dayKeyOf("2026-11-01T02:59:59Z"), "2026-10-31");
+  assert.equal(dayKeyOf("2026-11-01T03:00:00Z"), "2026-11-01");
+  assert.equal(dayKeyOf("2027-01-01T02:00:00Z"), "2026-12-31");
   assert.equal(monthKeyOf(monthRange("2026-03").start), "2026-03");
   assert.equal(monthKeyOf(new Date(monthRange("2026-03").end.getTime() - 1)), "2026-03");
 

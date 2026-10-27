@@ -24,6 +24,12 @@ export function monthKeyOf(date) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// Dia (YYYY-MM-DD) em que um instante cai, no horário de Brasília.
+export function dayKeyOf(date) {
+  const d = new Date(new Date(date).getTime() - OFFSET_MS);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 export function shiftMonth(key, delta) {
   const [y, m] = key.split("-").map(Number);
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));

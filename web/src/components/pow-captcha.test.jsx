@@ -126,7 +126,7 @@ describe("cadastro e login com a verificação automática", () => {
     await userEvent.type(screen.getByLabelText("Email"), "ana@exemplo.com");
     await userEvent.type(screen.getByLabelText("Senha"), "cavalo-azul-77");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
-    expect(await screen.findByText(/Aguarde a verificação de segurança terminar/)).toBeInTheDocument();
+    expect(await screen.findByText(/A verificação de segurança ainda não terminou/)).toBeInTheDocument();
     expect(signin).not.toHaveBeenCalled();
   });
 

@@ -1,12 +1,12 @@
 import Icon from "./Icon.jsx";
 import { useConfig } from "../context/configContext.js";
+import { connectionFact } from "../lib/connection.js";
 
 // Cada linha diz o que o sistema faz de verdade, em palavras de quem não é da área.
 // Sem exagero: a conexão é criptografada (HTTPS), mas o servidor precisa ler os lançamentos para
 // mostrar o saldo; por isso NÃO dizemos "criptografia de ponta a ponta".
 const BASE = [
   { icon: "senha", lead: "Senha embaralhada.", text: "Nem nós conseguimos ler a sua." },
-  { icon: "cadeado", lead: "Conexão criptografada.", text: "O que você envia viaja por HTTPS." },
   { icon: "escudo", lead: "Tudo é conferido de novo.", text: "O servidor valida o que o aparelho manda." },
   { icon: "computador", lead: "Você controla os acessos.", text: "Veja e encerre suas sessões a qualquer hora." },
 ];
@@ -14,7 +14,9 @@ const BASE = [
 export default function ProtectionDetails() {
   const { captcha } = useConfig();
   const facts = [
-    ...BASE,
+    BASE[0],
+    { icon: "cadeado", ...connectionFact(window.location) },
+    ...BASE.slice(1),
     captcha
       ? { icon: "atividade", lead: "Contra robôs.", text: "Verificação automática e limite de tentativas." }
       : { icon: "atividade", lead: "Limite de tentativas.", text: "Barra quem tenta adivinhar senhas." },

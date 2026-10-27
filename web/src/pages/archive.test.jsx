@@ -22,7 +22,7 @@ const home = (over = {}, monthOver = {}) => ({
 });
 const archivedRow = (id, description, over = {}) => ({ id, type: "output", value: 8000, description, category: "lazer", createdAt: at, archivedAt: at, ...over });
 const ev = (id, action, over = {}) => ({ id, transactionId: `t-${id}`, action, at, snapshot: { type: "output", value: 10000, description: "Feira", category: "lazer" }, changes: [], ...over });
-const historyRoute = { path: "/history", route: "/history" };
+const historyRoute = { path: "/history", route: "/history?aba=alteracoes" };
 
 describe("Home: arquivar", () => {
   test("arquivar chama a API, avisa que continua no saldo e Desfazer desarquiva", async () => {
@@ -82,7 +82,7 @@ describe("Home: arquivar", () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: home({}, { archivedCount: 2 }) });
     renderPage(<Home />);
     expect(await screen.findByText(/Os totais incluem 2 lançamentos arquivados/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ver arquivados" })).toHaveAttribute("href", "/history");
+    expect(screen.getByRole("link", { name: "Ver arquivados" })).toHaveAttribute("href", "/history?situacao=archived");
   });
 
   test("no singular e sem arquivados não há aviso", async () => {

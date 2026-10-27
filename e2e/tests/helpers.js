@@ -43,3 +43,16 @@ export async function addTransaction(page, { type, value, description, category 
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText(description, { exact: true })).toBeVisible();
 }
+
+// Navegação principal, sempre na faixa verde do topo.
+export const nav = (page) => page.getByRole("navigation", { name: "Principal" });
+
+// Vai para uma página pelos botões de navegação, que existem em todas as telas.
+export const goTo = (page, name) => nav(page).getByRole("link", { name, exact: true }).click();
+
+// Categorias fica dentro da Conta (configuração, não uso diário).
+export async function goToCategories(page) {
+  await goTo(page, "Conta");
+  await page.getByRole("link", { name: /^Categorias/ }).click();
+  await expect(page.getByRole("heading", { name: "Categorias", level: 1 })).toBeVisible();
+}

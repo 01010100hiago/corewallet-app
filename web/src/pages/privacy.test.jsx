@@ -185,7 +185,7 @@ describe("com os valores escondidos nada vaza", () => {
             }
           : { categories: [] },
     }));
-    renderPage(<History />, { path: "/history", route: "/history", privacy: HIDDEN });
+    renderPage(<History />, { path: "/history", route: "/history?aba=alteracoes", privacy: HIDDEN });
     await screen.findByRole("region", { name: "Arquivados" });
     expect(document.body.textContent).not.toMatch(REAIS);
     expect(screen.getByRole("region", { name: "Alterações" })).toHaveTextContent("Valor: R$ •••• → R$ ••••");

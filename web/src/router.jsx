@@ -12,6 +12,7 @@ import Welcome from "./pages/Welcome.jsx";
 import Account from "./pages/Account.jsx";
 import History from "./pages/History.jsx";
 import Analysis from "./pages/Analysis.jsx";
+import Categories from "./pages/Categories.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 
 export const routes = [
@@ -31,6 +32,7 @@ export const routes = [
               { path: "/account", element: <Account /> },
               { path: "/history", element: <History /> },
               { path: "/analysis", element: <Analysis /> },
+              { path: "/categories", element: <Categories /> },
             ],
           },
           {

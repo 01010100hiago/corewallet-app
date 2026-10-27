@@ -2,11 +2,15 @@ import { Outlet } from "react-router-dom";
 import Logo from "./Logo.jsx";
 import Icon from "./Icon.jsx";
 import Illustration from "./Illustration.jsx";
+import { connectionFact } from "../lib/connection.js";
 
-const POINTS = [
-  { icon: "senha", title: "Senha embaralhada", text: "Nem nós conseguimos ler a sua senha." },
-  { icon: "cadeado", title: "Conexão criptografada", text: "O que você envia viaja por HTTPS." },
-];
+const points = () => {
+  const c = connectionFact(window.location);
+  return [
+    { icon: "senha", title: "Senha embaralhada", text: "Nem nós conseguimos ler a sua senha." },
+    { icon: "cadeado", title: c.lead.replace(/\.$/, ""), text: c.text },
+  ];
+};
 
 // Moldura das telas de acesso: painel de marca de um lado, formulário do outro.
 export default function AuthShell() {
@@ -22,7 +26,7 @@ export default function AuthShell() {
             sua conta protegida.
           </p>
           <ul className="mt-6 hidden flex-col gap-4 lg:flex">
-            {POINTS.map((p) => (
+            {points().map((p) => (
               <li key={p.icon} className="flex gap-3">
                 <Icon name={p.icon} className="mt-0.5 size-6 shrink-0 text-mint-300" />
                 <span>

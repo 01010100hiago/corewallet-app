@@ -380,6 +380,7 @@ describe("Home refinada", () => {
         balance: 7000,
         totalIn: 10000,
         totalOut: 3000,
+        today: { key: "2026-10-27", totalIn: 2000, totalOut: 1000 },
         truncated: false,
         transactions: [mk("3", "output", 1000, "Mercado", today), mk("2", "input", 2000, "Freela", today), mk("1", "input", 8000, "Salário", today.subtract(1, "day"))],
       },
@@ -388,8 +389,11 @@ describe("Home refinada", () => {
     expect(await screen.findByText("Mercado")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hoje", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ontem", level: 3 })).toBeInTheDocument();
-    expect(screen.getByText("Total de receitas").closest("div")).toHaveTextContent("100,00");
-    expect(screen.getByText("Total de despesas").closest("div")).toHaveTextContent("30,00");
+    // Os dois totais do topo são os de HOJE (não os gerais): o rótulo diz isso e o valor vem de `today`.
+    expect(screen.getByText("Receitas de hoje").closest("div")).toHaveTextContent("20,00");
+    expect(screen.getByText("Despesas de hoje").closest("div")).toHaveTextContent("10,00");
+    expect(screen.getByText("Hoje, 27/10")).toBeInTheDocument();
+    expect(screen.queryByText(/Total de (receitas|despesas)/)).toBeNull();
   });
 
   test("enquanto carrega mostra o esqueleto, e o saldo fica em traço", () => {

@@ -66,6 +66,13 @@ h1:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Cabeçalho verde: o conteúdo novo aparece suave enquanto a faixa muda de altura (AppShell). */
+@keyframes cw-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.cw-fade-in { animation: cw-fade-in 0.35s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

@@ -90,10 +90,8 @@ describe("SessionChip", () => {
     renderChip();
     const button = screen.getByRole("button", { name: /Sessão protegida/ });
     await userEvent.click(button);
-    await userEvent.tab(); // link Análise financeira
-    await userEvent.tab(); // link Histórico
-    await userEvent.tab(); // link Minha conta
-    await userEvent.tab(); // botão Sair
+    expect(screen.queryByRole("link")).toBeNull();
+    await userEvent.tab(); // botão Sair (a navegação fica na faixa do topo, não aqui)
     expect(screen.getByRole("group", { name: "Detalhes da sessão" })).toBeInTheDocument();
     await userEvent.tab(); // sai do painel
     expect(screen.queryByRole("group", { name: "Detalhes da sessão" })).not.toBeInTheDocument();

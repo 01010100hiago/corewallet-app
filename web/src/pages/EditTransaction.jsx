@@ -5,6 +5,7 @@ import { api, getErrorMessage } from "../lib/api.js";
 import Icon from "../components/Icon.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import TransactionForm from "../components/TransactionForm.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { TYPES } from "../lib/transactionTypes.js";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { centsToInput } from "../lib/money.js";
@@ -53,15 +54,19 @@ export default function EditTransaction() {
 
   if (!current) {
     return (
-      <p role="status" className="py-12 text-center text-muted">
-        Carregando lançamento…
-      </p>
+      <>
+        <PageHeader title="Editar lançamento" />
+        <p role="status" className="py-12 text-center text-muted">
+          Carregando lançamento…
+        </p>
+      </>
     );
   }
 
   if (current.error) {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4">
+        <PageHeader title="Editar lançamento" />
         <Link to="/" className="inline-flex items-center gap-2 rounded-md py-1 text-sm font-medium text-pine-900 hover:text-pine-700">
           <Icon name="voltar" className="size-5" />
           Voltar

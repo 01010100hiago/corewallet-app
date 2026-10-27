@@ -9,6 +9,7 @@ import Transaction from "../src/models/Transaction.js";
 import TransactionEvent from "../src/models/TransactionEvent.js";
 import Category from "../src/models/Category.js";
 import RefreshSession from "../src/models/RefreshSession.js";
+import { settleCategory } from "../src/services/transactionService.js";
 import { testEnv, user, testDbUri, csrfOf } from "../support/helpers.js";
 
 const uri = testDbUri("catmanage");
@@ -48,7 +49,7 @@ describe("gerenciar categorias: uso, renomear e apagar", { skip: !uri && "defina
   const addTx = (agent, body) => agent.post("/api/transactions").send({ type: "output", value: "10", description: "Teste ok", ...body });
 
   describe("uso por categoria", () => {
-    test("conta lançamentos ativos e arquivados por categoria, não os excluídos, e só os da pessoa", async () => {
+    test("conta lançamentos ativos, arquivados e excluídos por categoria, e só os da pessoa", async () => {
       const ana = await loggedAgent(1);
       const bia = await loggedAgent(2);
       const pets = await newCat(ana.agent, "Pets");
@@ -63,7 +64,7 @@ describe("gerenciar categorias: uso, renomear e apagar", { skip: !uri && "defina
 
       const { usage } = (await ana.agent.get("/api/categories/usage").expect(200)).body;
       const get = (type, category) => usage.find((u) => u.type === type && u.category === category)?.count;
-      assert.equal(get("output", pets.id), 2, "2 de 3: o excluído não conta e o arquivado conta");
+      assert.equal(get("output", pets.id), 3, "os 3: o arquivado e o excluído também serão movidos ao apagar a categoria");
       assert.equal(get("output", "mercado"), 1, "o da Bia não entra");
       assert.equal(get("input", "salario"), 1);
     });
@@ -299,6 +300,23 @@ describe("gerenciar categorias: uso, renomear e apagar", { skip: !uri && "defina
       await request(app).delete(`/api/categories/${c.id}`).expect(401);
       await bare(agent).delete(`/api/categories/${c.id}`).expect(403);
       assert.ok(await Category.findById(c.id));
+    });
+  });
+
+  describe("categoria apagada no meio de uma gravação", () => {
+    test("settleCategory manda para 'Outros' o lançamento cuja categoria já não existe, e deixa os demais quietos", async () => {
+      const { agent, userId } = await loggedAgent(1);
+      const pets = await newCat(agent, "Pets");
+      const mk = (category) => Transaction.create({ userId, type: "output", valueCents: 1000, description: "Teste ok", category });
+      const alive = await mk(pets.id);
+      assert.equal((await settleCategory(alive)).category, pets.id, "a categoria existe: nada muda");
+      const builtIn = await mk("mercado");
+      assert.equal((await settleCategory(builtIn)).category, "mercado");
+      await agent.delete(`/api/categories/${pets.id}?moveTo=outros`).expect(200);
+      // Simula o lançamento que chegou depois da varredura da exclusão, ainda com o id antigo.
+      const orphan = await mk(pets.id);
+      assert.equal((await settleCategory(orphan)).category, "outros");
+      assert.equal((await Transaction.findById(orphan._id)).category, "outros", "gravado no banco, não só na resposta");
     });
   });
 });

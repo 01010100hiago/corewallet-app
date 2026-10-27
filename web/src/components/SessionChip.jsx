@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useAuth } from "../context/authContext.js";
 import { connectionState } from "../lib/connection.js";
@@ -119,30 +119,6 @@ export default function SessionChip({ onDark = false }) {
           )}
 
           <div className="mt-4 flex flex-col gap-2">
-            <Link
-              to="/analysis"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
-            >
-              <Icon name="grafico" className="size-5" />
-              Análise financeira
-            </Link>
-            <Link
-              to="/history"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
-            >
-              <Icon name="relogio" className="size-5" />
-              Histórico de alterações
-            </Link>
-            <Link
-              to="/account"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
-            >
-              <Icon name="pessoa" className="size-5" />
-              Minha conta
-            </Link>
             <Button variant="soft" icon="sair" onClick={handleLogout}>
               Sair
             </Button>

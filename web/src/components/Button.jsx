@@ -11,9 +11,10 @@ const variants = {
   ghost: "text-pine-900 hover:bg-mint-100",
 };
 
-export function Button({ children, icon, variant = "primary", ...props }) {
+// inline: tamanho do conteúdo em vez da largura toda (botões ao lado de um campo).
+export function Button({ children, icon, variant = "primary", inline = false, ...props }) {
   return (
-    <button className={`${base} ${variants[variant]}`} {...props}>
+    <button className={`${inline ? base.replace("w-full", "w-auto") : base} ${variants[variant]}`} {...props}>
       {icon && <Icon name={icon} className="size-5" />}
       {children}
     </button>

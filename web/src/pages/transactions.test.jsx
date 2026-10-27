@@ -32,8 +32,10 @@ describe("Home: mês, resumo e gráfico", () => {
     renderPage(<Home />);
     expect(await screen.findByText("Mercado")).toBeInTheDocument();
     expect(getsMonths()).toEqual([current]);
-    expect(screen.getByText("Receitas do mês").closest("div")).toHaveTextContent("123,45");
-    expect(screen.getByText("Despesas do mês").closest("div")).toHaveTextContent("30,00");
+    expect(screen.getByText("Receitas do mês").closest("dl > div")).toHaveTextContent("123,45");
+    expect(screen.getByText("Despesas do mês").closest("dl > div")).toHaveTextContent("30,00");
+    expect(screen.getByTestId("month-result")).toHaveTextContent("93,45"); // 123,45 − 30,00
+    expect(screen.getByRole("img", { name: /Receitas 80% e despesas 20%/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Próximo mês" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Ir para o mês atual" })).toBeNull();
   });
@@ -156,7 +158,7 @@ describe("Home: mês, resumo e gráfico", () => {
     await userEvent.click(screen.getByRole("button", { name: "Mês anterior" }));
     expect(screen.queryByText("do mês atual")).toBeNull();
     expect(screen.getByRole("status", { name: "Carregando lançamentos" })).toBeInTheDocument();
-    expect(screen.getByText("Receitas do mês").closest("div")).toHaveTextContent("—");
+    expect(screen.getByText("Receitas do mês").closest("dl > div")).toHaveTextContent("—");
   });
 
   test("troca de mês com a resposta antiga atrasada não mistura os meses", async () => {
@@ -283,6 +285,17 @@ describe("EditTransaction", () => {
     expect(screen.getByLabelText("Categoria")).toHaveValue("mercado");
     expect(screen.getByText(/não mudam/)).toBeInTheDocument();
     expect(screen.queryByRole("radio")).toBeNull();
+  });
+
+  test("carregando e lançamento não encontrado também têm o título da página (a faixa do topo não fica vazia)", async () => {
+    vi.spyOn(api, "get").mockReturnValue(new Promise(() => {}));
+    const first = renderPage(<EditTransaction />, route);
+    expect(screen.getByRole("heading", { name: "Editar lançamento" })).toBeInTheDocument();
+    first.unmount();
+    vi.spyOn(api, "get").mockRejectedValue({ response: { status: 404, data: {} } });
+    renderPage(<EditTransaction />, route);
+    expect(await screen.findByText(/Não encontramos este lançamento/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Editar lançamento" })).toBeInTheDocument();
   });
 
   test("salva com PUT, sem o tipo, e volta para a home com o aviso", async () => {

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DEFAULT_CATEGORY, dayRange, monthRange } from "@corewallet/shared";
+import { DEFAULT_CATEGORY, dayKeyOf, dayRange, isCustomCategoryId, monthRange } from "@corewallet/shared";
 import Transaction from "../models/Transaction.js";
 import TransactionEvent from "../models/TransactionEvent.js";
 import * as categoryService from "./categoryService.js";
@@ -35,9 +35,19 @@ async function assertCategory(userId, type, category) {
   }
 }
 
+// Apagar uma categoria pode acontecer entre conferir a categoria e gravar o lançamento. Depois de
+// gravar, confere de novo: se a categoria sumiu, o lançamento vai para a padrão ("Outros"). Quem
+// apaga a categoria varre os lançamentos depois de apagá-la, então um dos dois sempre pega.
+export async function settleCategory(t) {
+  if (!isCustomCategoryId(t.category) || (await categoryService.isUsable(t.userId, t.type, t.category))) return t;
+  await Transaction.updateOne({ _id: t._id, category: t.category }, { $set: { category: DEFAULT_CATEGORY } });
+  t.category = DEFAULT_CATEGORY;
+  return t;
+}
+
 export async function create(userId, { type, value, description, category }) {
   await assertCategory(userId, type, category);
-  const transaction = await Transaction.create({ userId, type, valueCents: value, description, category });
+  const transaction = await settleCategory(await Transaction.create({ userId, type, valueCents: value, description, category }));
   await record(transaction, "created", transaction.createdAt);
   return transaction;
 }
@@ -84,6 +94,8 @@ export async function update(userId, id, { value, description, category }) {
       { returnDocument: "after", runValidators: true }
     );
     if (updated) {
+      await settleCategory(updated);
+      for (const c of changes) if (c.field === "category") c.to = updated.category;
       await record(updated, "edited", new Date(), changes);
       return updated;
     }
@@ -187,17 +199,21 @@ async function totalsOf(userId, range) {
 
 // Sempre filtra pelo dono: um usuário nunca enxerga lançamento de outro.
 // Com `month` ("2026-10") a lista e o resumo cobrem só aquele mês; o saldo é sempre o geral.
-export async function listByUser(userId, { month, limit = LIST_LIMIT } = {}) {
+// `today`: o dia de hoje (horário de Brasília) pela hora do SERVIDOR, nunca a do aparelho. Os totais do
+// dia incluem arquivados (como o saldo) e não incluem excluídos.
+export async function listByUser(userId, { month, limit = LIST_LIMIT, now = new Date() } = {}) {
+  const todayKey = dayKeyOf(now);
   const range = month ? monthRange(month) : null;
   // Arquivados ficam fora da lista, mas dentro dos totais (totalsOf não filtra arquivados).
   const filter = { userId, ...alive, archivedAt: null };
   if (range) filter.createdAt = { $gte: range.start, $lt: range.end };
 
-  const [transactions, all, inMonth, categories] = await Promise.all([
+  const [transactions, all, inMonth, categories, inToday] = await Promise.all([
     Transaction.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit).lean(),
     totalsOf(userId),
     range ? totalsOf(userId, range) : null,
     categoryService.listByUser(userId),
+    totalsOf(userId, dayRange(todayKey)),
   ]);
   const scope = inMonth ?? all;
   return {
@@ -206,6 +222,7 @@ export async function listByUser(userId, { month, limit = LIST_LIMIT } = {}) {
     balance: all.totalIn - all.totalOut,
     totalIn: all.totalIn,
     totalOut: all.totalOut,
+    today: { key: todayKey, totalIn: inToday.totalIn, totalOut: inToday.totalOut },
     truncated: scope.count - scope.archivedCount > transactions.length,
     month: inMonth && {
       key: month,

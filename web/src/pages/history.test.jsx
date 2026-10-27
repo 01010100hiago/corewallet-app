@@ -13,7 +13,7 @@ const current = monthKeyOf(new Date());
 const at = "2026-10-27T13:40:00.000Z"; // 10:40 em Brasília
 const snap = (over = {}) => ({ type: "output", value: 10000, description: "Feira", category: "lazer", ...over });
 const ev = (id, action, over = {}) => ({ id, transactionId: `t-${id}`, action, at, snapshot: snap(), changes: [], ...over });
-const route = { path: "/history", route: "/history" };
+const route = { path: "/history", route: "/history?aba=alteracoes" };
 const getsByUrl = (map) => vi.spyOn(api, "get").mockImplementation(async (url) => ({ data: map[url] ?? { categories: [] } }));
 
 describe("página de histórico", () => {

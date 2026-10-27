@@ -1,16 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import Logo from "./Logo.jsx";
-import MainNav from "./MainNav.jsx";
-import PrivacyToggle from "./PrivacyToggle.jsx";
+import Shortcuts from "./Shortcuts.jsx";
 import SessionChip from "./SessionChip.jsx";
 
 // Moldura das telas de dentro do app. A faixa verde do topo é a MESMA em todas as telas: marca,
-// olhinho que esconde os valores, sessão e a navegação principal. Abaixo dela cada página entrega o
+// sessão. Abaixo dela cada página entrega o
 // próprio cabeçalho (o saldo na página inicial, o título nas demais) pelo espaço heroSlot, e o
 // conteúdo sobe sobre a borda da faixa.
 export default function AppShell() {
   const [heroSlot, setHeroSlot] = useState(null);
+  const bandRef = useRef(null);
+
+  // A faixa verde acompanha a altura do cabeçalho da página (alta no início, que tem o saldo; baixa
+  // nas outras) e anima a mudança. A altura é aplicada pelo CSSOM (element.style), que a política de
+  // segurança do site permite, ao contrário de atributos style no HTML.
+  useEffect(() => {
+    const band = bandRef.current;
+    if (!heroSlot || !band || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => {
+      band.style.height = `${heroSlot.getBoundingClientRect().height}px`;
+    });
+    observer.observe(heroSlot);
+    return () => observer.disconnect();
+  }, [heroSlot]);
 
   return (
     <div className="min-h-screen">
@@ -22,15 +35,18 @@ export default function AppShell() {
               <Logo tone="light" />
             </Link>
             <div className="flex items-center gap-2">
-              <PrivacyToggle />
               <SessionChip onDark />
             </div>
           </div>
-          <MainNav />
         </header>
-        <div ref={setHeroSlot} />
+        <div ref={bandRef} className="overflow-hidden transition-[height] duration-300 ease-out">
+          <div ref={setHeroSlot} />
+        </div>
       </div>
       <main className="relative z-10 mx-auto -mt-12 max-w-3xl px-4 pb-8">
+        <div className="mb-5">
+          <Shortcuts />
+        </div>
         <Outlet context={{ heroSlot }} />
       </main>
     </div>

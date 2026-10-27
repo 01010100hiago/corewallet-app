@@ -241,7 +241,10 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     test("saldo vazio é zero", async () => {
       const agent = await loggedAgent();
       const res = await agent.get("/api/transactions").expect(200);
-      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, month: null, categories: [], transactions: [] });
+      assert.match(res.body.today.key, /^\d{4}-\d{2}-\d{2}$/);
+      const { today, ...rest } = res.body;
+      assert.deepEqual(rest, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, month: null, categories: [], transactions: [] });
+      assert.deepEqual({ totalIn: today.totalIn, totalOut: today.totalOut }, { totalIn: 0, totalOut: 0 });
     });
 
     test("lista cortada pelo limite continua com o saldo de todos os lançamentos", async () => {
@@ -255,6 +258,25 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
       assert.equal(out.transactions.length, 2);
       assert.equal(out.truncated, true);
       assert.equal(out.balance, (1 + 2 + 3 + 4 + 5 - 1) * 100);
+    });
+
+    test("os totais de hoje contam só o dia do servidor (Brasília), com arquivados e sem excluídos", async () => {
+      const agent = await loggedAgent();
+      const userId = (await agent.get("/api/auth/me")).body.id;
+      const now = new Date("2026-10-27T14:00:00Z"); // 11:00 em Brasília
+      const at = (iso, over) => Transaction.create({ userId, type: "input", valueCents: 1000, description: "Teste ok", category: "salario", createdAt: new Date(iso), ...over });
+      await at("2026-10-27T03:00:00Z", { valueCents: 5000 }); // 00:00 de hoje em Brasília: conta
+      await at("2026-10-27T13:00:00Z", { type: "output", category: "mercado", valueCents: 700 });
+      await at("2026-10-27T13:30:00Z", { valueCents: 300, archivedAt: new Date("2026-10-27T13:31:00Z") }); // arquivado conta
+      await at("2026-10-27T13:40:00Z", { valueCents: 9999, deletedAt: new Date("2026-10-27T13:41:00Z") }); // excluído não
+      await at("2026-10-27T02:59:00Z", { valueCents: 40000 }); // ainda é dia 26 em Brasília: não
+      await at("2026-10-28T03:00:00Z", { valueCents: 80000 }); // já é dia 28: não
+      const out = await listByUser(userId, { now });
+      assert.deepEqual(out.today, { key: "2026-10-27", totalIn: 5300, totalOut: 700 });
+      assert.equal(out.totalIn, 5000 + 300 + 40000 + 80000, "o total geral continua sendo o de sempre");
+      // O mês escolhido não muda o "hoje".
+      const past = await listByUser(userId, { now, month: "2026-09" });
+      assert.deepEqual(past.today, out.today);
     });
 
     test("um usuário nunca vê os lançamentos de outro", async () => {

@@ -49,21 +49,24 @@ export default function Analysis() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Análise financeira" subtitle={`Receitas, despesas e saldo dos últimos ${months} meses. O mês atual está em andamento.`}>
-        <div role="group" aria-label="Período" className="inline-flex rounded-md border border-white/20 bg-white/10 p-0.5">
+      <PageHeader title="Análise financeira" subtitle={`Últimos ${months} meses`} />
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-sm text-muted">O mês atual está em andamento.</p>
+        <div role="group" aria-label="Período" className="inline-flex rounded-md border border-line bg-white p-0.5 shadow-sm">
           {ANALYSIS_PERIODS.map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={p === months}
               onClick={() => setParams(p === 6 ? {} : { periodo: String(p) })}
-              className={`h-9 rounded px-3.5 text-sm font-medium transition ${p === months ? "bg-white text-pine-900" : "text-white hover:bg-white/15"}`}
+              className={`h-9 rounded px-3.5 text-sm font-medium transition ${p === months ? "bg-pine-900 text-white" : "text-pine-900 hover:bg-mint-100"}`}
             >
               {p} meses
             </button>
           ))}
         </div>
-      </PageHeader>
+      </div>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
       {!ready && (

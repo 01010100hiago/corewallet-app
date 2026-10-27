@@ -3,7 +3,6 @@ import { flushSync } from "react-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { transactionFormSchema, categoryOptions, categoryNameSchema } from "@corewallet/shared";
-import Icon from "./Icon.jsx";
 import PageHeader from "./PageHeader.jsx";
 import Input from "./Input.jsx";
 import Select from "./Select.jsx";
@@ -90,12 +89,7 @@ export default function TransactionForm({ type, editing = false, initial, onSubm
 
   return (
     <>
-      <PageHeader title={editing ? t.editTitle : t.title} subtitle={t.hint}>
-        <span className="inline-flex items-center gap-2 rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium [--icon-accent:currentColor]">
-          <Icon name={t.icon} className="size-5" />
-          {type === "input" ? "Receita" : "Despesa"}
-        </span>
-      </PageHeader>
+      <PageHeader title={editing ? t.editTitle : t.title} subtitle={t.hint} />
       <div className="mx-auto max-w-lg rounded-lg border border-line bg-white p-6 shadow-sm sm:p-8">
         {apiError && (
           <div className="mb-5">

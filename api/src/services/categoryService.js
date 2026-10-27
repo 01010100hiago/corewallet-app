@@ -63,11 +63,11 @@ export async function isUsable(userId, type, category) {
   return Boolean(await Category.exists({ _id: category, userId, type }));
 }
 
-// Quantos lançamentos (ativos e arquivados; os excluídos não contam) usam cada categoria, de
-// fábrica ou criada pela pessoa.
+// Quantos lançamentos usam cada categoria, de fábrica ou criada pela pessoa. Os excluídos contam:
+// apagar a categoria também os move (senão restaurá-los traria um lançamento sem categoria).
 export async function usageByUser(userId) {
   const rows = await Transaction.aggregate([
-    { $match: { userId: new mongoose.Types.ObjectId(String(userId)), deletedAt: null } },
+    { $match: { userId: new mongoose.Types.ObjectId(String(userId)) } },
     { $group: { _id: { type: "$type", category: { $ifNull: ["$category", DEFAULT_CATEGORY] } }, count: { $sum: 1 } } },
   ]);
   return rows.map((r) => ({ type: r._id.type, category: r._id.category, count: r.count }));

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { newUser, register, addTransaction } from "./helpers.js";
+import { newUser, register, addTransaction, nav, goTo } from "./helpers.js";
 
 test("jornada completa: cadastro, lançamentos, categoria, gráfico, edição, exclusão e mês", async ({ page }) => {
   const user = newUser("Maria");
@@ -15,8 +15,8 @@ test("jornada completa: cadastro, lançamentos, categoria, gráfico, edição, e
 
   await expect(page.getByTestId("balance")).toContainText("3.379,50");
   const month = page.getByRole("region", { name: "Mês" });
-  await expect(month.getByText("Receitas do mês").locator("..")).toContainText("3.500,00");
-  await expect(month.getByText("Despesas do mês").locator("..")).toContainText("120,50");
+  await expect(month.getByText("Receitas do mês").locator("xpath=ancestor::dl/div[1]")).toContainText("3.500,00");
+  await expect(month.getByText("Despesas do mês").locator("xpath=ancestor::dl/div[2]")).toContainText("120,50");
 
   // Despesas por categoria: só saídas, 100% numa categoria.
   const chart = page.getByRole("region", { name: "Despesas por categoria" });
@@ -65,8 +65,8 @@ test("jornada completa: cadastro, lançamentos, categoria, gráfico, edição, e
   await expect(page.getByTestId("balance")).toContainText("100,00");
 
   // O histórico guarda tudo: criado, editado, excluído, restaurado, e a exclusão vigente pode ser restaurada.
-  await page.getByRole("button", { name: /Sessão protegida/ }).click();
-  await page.getByRole("link", { name: "Histórico" }).click();
+  await goTo(page, "Histórico");
+  await page.getByRole("tab", { name: "Alterações" }).click();
   const changes = page.getByRole("region", { name: "Alterações" });
   await expect(changes.getByText("Editado")).toBeVisible();
   await expect(changes.getByText("Valor: R$ 120,50 → R$ 100,00")).toBeVisible();
@@ -81,7 +81,7 @@ test("jornada completa: cadastro, lançamentos, categoria, gráfico, edição, e
   await deleted.getByRole("button", { name: "Restaurar Salário do mês" }).click();
   await expect(page.getByText(/voltou para a lista e para o saldo/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Excluídos" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await nav(page).getByRole("link", { name: "Início" }).click();
   await expect(page.getByTestId("balance")).toContainText("3.400,00");
 
   // Mês anterior está vazio, mas o saldo é o geral; o próximo mês não existe.
@@ -154,8 +154,8 @@ test("o saldo e a barra do topo formam uma faixa verde só, com cantos discretos
   expect(cardRadius).toBeLessThanOrEqual(10);
   // O painel branco da sessão não herda o anel de foco claro da faixa verde: o foco precisa aparecer.
   await page.getByRole("button", { name: /Sessão protegida/ }).click();
-  await page.keyboard.press("Tab"); // primeiro item do painel: o link Análise financeira
-  const link = page.getByRole("link", { name: "Análise financeira", exact: true });
+  await page.keyboard.press("Tab"); // o painel só tem o botão Sair: a navegação fica na faixa do topo
+  const link = page.getByRole("button", { name: "Sair" });
   await expect(link).toBeFocused();
   // O anel aparece com uma transição de ~150 ms: espera a cor assentar antes de comparar.
   await expect
@@ -172,9 +172,9 @@ test("o saldo e a barra do topo formam uma faixa verde só, com cantos discretos
     p.evaluate(() => {
       const header = document.querySelector("header");
       const r = header.getBoundingClientRect();
-      const eye = header.querySelector("button[aria-pressed]").getBoundingClientRect();
+      const chip = header.querySelector("button[aria-expanded]").getBoundingClientRect();
       const logo = header.querySelector("a").getBoundingClientRect();
-      return { top: r.top, height: Math.round(r.height), eyeX: Math.round(eye.x), logoX: Math.round(logo.x), bg: getComputedStyle(header.parentElement).backgroundColor };
+      return { top: r.top, height: Math.round(r.height), chipX: Math.round(chip.x), logoX: Math.round(logo.x), bg: getComputedStyle(header.parentElement).backgroundColor };
     });
   const onHome = await barOf(page);
   await page.getByRole("link", { name: /Nova despesa/ }).click();
@@ -201,21 +201,24 @@ test("arquivar tira da lista mas o saldo e os totais continuam; desarquivar traz
   // O saldo, o resumo do mês e as despesas por categoria não mudam.
   await expect(page.getByTestId("balance")).toContainText("700,00");
   const month = page.getByRole("region", { name: "Mês" });
-  await expect(month.getByText("Despesas do mês").locator("..")).toContainText("300,00");
+  await expect(month.getByText("Despesas do mês").locator("xpath=ancestor::dl/div[2]")).toContainText("300,00");
   await expect(page.getByRole("region", { name: "Despesas por categoria" })).toContainText("Moradia");
   await expect(month).toContainText("Os totais incluem 1 lançamento arquivado");
 
-  // Aparece em Arquivados, no Histórico.
+  // O link abre o extrato já filtrado em "Arquivados".
   await month.getByRole("link", { name: "Ver arquivados" }).click();
-  const archived = page.getByRole("region", { name: "Arquivados" });
-  await expect(archived).toContainText("Aluguel antigo");
-  await expect(archived).toContainText("R$");
-  await expect(page.getByRole("region", { name: "Alterações" }).getByText("Arquivado")).toBeVisible();
-  await archived.getByRole("button", { name: "Desarquivar Aluguel antigo" }).click();
+  await expect(page.getByLabel("Situação")).toHaveValue("archived");
+  const statement = page.getByRole("region", { name: "Extrato" });
+  await expect(statement).toContainText("Aluguel antigo");
+  await expect(statement).toContainText("R$");
+  await expect(statement).not.toContainText("Receita de teste");
+  await statement.getByRole("button", { name: "Desarquivar Aluguel antigo" }).click();
   await expect(page.getByText(/voltou para a lista/)).toBeVisible();
-  await expect(page.getByRole("region", { name: "Arquivados" })).toHaveCount(0);
+  await expect(statement.getByRole("listitem")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Alterações" }).click();
+  await expect(page.getByRole("region", { name: "Alterações" }).getByText("Desarquivado")).toBeVisible();
 
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await nav(page).getByRole("link", { name: "Início" }).click();
   await expect(page.getByTestId("balance")).toContainText("700,00"); // só a Home tem o saldo
   await expect(page.getByText("Aluguel antigo", { exact: true })).toBeVisible();
   await expect(page.getByText(/Os totais incluem/)).toHaveCount(0);
@@ -261,7 +264,7 @@ test("no celular, nenhum valor em dinheiro aparece cortado", async ({ browser })
   );
   expect(cut).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(page.getByText("Total de receitas").locator("..")).toContainText("99.999.999,99");
+  await expect(page.getByText("Receitas de hoje").locator("..")).toContainText("99.999.999,99");
 
   // O total no meio do anel cabe dentro dele (o buraco do anel tem ~60% da largura do desenho).
   const total = await page.getByTestId("chart-total").boundingBox();
@@ -314,16 +317,15 @@ test("análise financeira: indicadores, gráficos, tabelas e período", async ({
   // Período: 12 meses mostra 12 linhas e vai para a URL.
   await page.getByRole("button", { name: "12 meses" }).click();
   await expect(page).toHaveURL(/periodo=12/);
-  await expect(page.getByText(/últimos 12 meses/)).toBeVisible();
+  await expect(page.getByText("Últimos 12 meses")).toBeVisible();
   const bars12 = page.getByRole("region", { name: "Receitas e despesas por mês" });
   await bars12.getByText("Ver valores em tabela").click();
   await expect(bars12.getByRole("row")).toHaveCount(13);
   await expect(page.getByRole("button", { name: "12 meses" })).toHaveAttribute("aria-pressed", "true");
 
-  // O menu da sessão também leva à análise.
+  // A navegação da faixa do topo também leva à análise.
   await page.goto("/");
-  await page.getByRole("button", { name: /Sessão protegida/ }).click();
-  await page.getByRole("link", { name: "Análise financeira", exact: true }).click();
+  await goTo(page, "Análise");
   await expect(page).toHaveURL(/\/analysis$/);
 });
 

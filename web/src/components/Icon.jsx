@@ -162,14 +162,14 @@ const paths = {
     <>
       <circle className="t" cx={12} cy={12} r={9} />
       <circle cx={12} cy={12} r={9} />
-      <path className="a" d="M12 7.5 V16 M8.4 12.6 L12 16.2 L15.6 12.6" />
+      <path className="a" d="M12 16.5 V8 M8.4 11.4 L12 7.8 L15.6 11.4" />
     </>
   ),
   saida: (
     <>
       <circle className="t" cx={12} cy={12} r={9} />
       <circle cx={12} cy={12} r={9} />
-      <path className="a" d="M12 16.5 V8 M8.4 11.4 L12 7.8 L15.6 11.4" />
+      <path className="a" d="M12 7.5 V16 M8.4 12.6 L12 16.2 L15.6 12.6" />
     </>
   ),
   voltar: (

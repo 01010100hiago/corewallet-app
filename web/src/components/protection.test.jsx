@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { ConfigContext } from "../context/configContext.js";
 import ProtectionDetails from "./ProtectionDetails.jsx";
@@ -28,7 +28,24 @@ describe("Como protegemos seus dados", () => {
       expect(li.textContent.length).toBeLessThanOrEqual(75);
     }
     expect(items[0]).toHaveTextContent("Senha embaralhada. Nem nós conseguimos ler a sua.");
-    expect(items[1]).toHaveTextContent("Conexão criptografada. O que você envia viaja por HTTPS.");
+    expect(items[1]).toHaveTextContent("Conexão local. Aqui o que você envia não sai do computador."); // testes rodam em http://localhost
+  });
+
+  test("só promete HTTPS quando a página veio por HTTPS", () => {
+    const at = (protocol, hostname) => {
+      vi.stubGlobal("location", { protocol, hostname });
+      const { unmount } = mount();
+      const text = screen.getAllByRole("listitem")[1].textContent;
+      unmount();
+      return text;
+    };
+    try {
+      expect(at("https:", "carteira.exemplo.com")).toBe("Conexão criptografada. O que você envia viaja por HTTPS.");
+      expect(at("http:", "192.168.1.20")).toBe("Conexão sem HTTPS. O que você envia viaja sem criptografia.");
+      expect(at("http:", "192.168.1.20")).not.toMatch(/viaja por HTTPS/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   test("não promete o que o sistema não faz nem usa jargão", () => {

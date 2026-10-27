@@ -42,7 +42,7 @@ describe("página de análise financeira", () => {
     expect(item("Resultado")).toHaveTextContent("2.400,00");
     expect(item("Taxa de poupança")).toHaveTextContent("57,1%"); // 240000 de 420000
     expect(item("Despesa média por mês")).toHaveTextContent("300,00");
-    expect(screen.getByText(/últimos 6 meses/)).toBeInTheDocument();
+    expect(screen.getByText("Últimos 6 meses")).toBeInTheDocument();
   });
 
   test("a variação sobre o período anterior aparece com sinal e cor certos", async () => {
@@ -68,7 +68,7 @@ describe("página de análise financeira", () => {
     api.get.mockResolvedValue({ data: data({ months: mk(["2026-08", "2026-09", "2026-10"], [[1, 1], [1, 1], [1, 1]]) }) });
     await userEvent.click(within(group).getByRole("button", { name: "3 meses" }));
     await waitFor(() => expect(monthsOf()).toEqual([6, 3]));
-    expect(await screen.findByText(/últimos 3 meses/)).toBeInTheDocument();
+    expect(await screen.findByText("Últimos 3 meses")).toBeInTheDocument();
     expect(within(group).getByRole("button", { name: "3 meses" })).toHaveAttribute("aria-pressed", "true");
   });
 

@@ -10,7 +10,7 @@ Carteira de receitas e despesas, inspirada no projeto do curso de React da [DIO]
 </p>
 <p>
   <img src="docs/img/analise.png" alt="Análise financeira: indicadores do período, receitas e despesas por mês, evolução do saldo, categorias com variação e maiores despesas" width="36%" />
-  <img src="docs/img/historico.png" alt="Histórico de alterações: arquivados, excluídos com Restaurar e o registro de eventos" width="36%" />
+  <img src="docs/img/historico.png" alt="Histórico: extrato com busca, filtros por tipo, categoria, situação e datas, e totais do filtro" width="36%" />
 </p>
 <p>
   <img src="docs/img/conta.png" alt="Minha conta: dispositivos conectados e o que o sistema guarda" width="36%" />
@@ -21,8 +21,13 @@ Carteira de receitas e despesas, inspirada no projeto do curso de React da [DIO]
 
 - **Lançamentos:** receitas e despesas com categoria (as padrão ou as que você cria na hora), editar, excluir (com confirmação e "Desfazer"), **arquivar**, resumo do mês e despesas por categoria em anel.
 - **Análise financeira:** receitas, despesas, resultado, taxa de poupança e despesa média; receitas e despesas por mês; evolução do saldo; mês atual comparado ao anterior; categorias com variação sobre o período anterior; maiores despesas. Períodos de 3, 6 ou 12 meses, com tabela de valores para cada gráfico.
+- **Navegação em botões com ícone, sempre iguais:** os mesmos quatro botões (Início, Análise, Histórico, Conta), no mesmo lugar e do mesmo tamanho em todas as páginas, marcando a atual. A faixa verde do topo tem sempre o mesmo tamanho fora do início (título e subtítulo de uma linha) e anima a altura ao entrar e sair do início. Categorias fica dentro da Conta, com atalho no cartão "Despesas por categoria". Efeito ao passar o mouse ou focar com o teclado; tudo é desligado para quem pede menos movimento.
+- **Saldo e totais de hoje:** ao lado do saldo (que é o geral) ficam as receitas e despesas **de hoje**, com o rótulo e a data, sempre pelo dia do servidor em Brasília; o resumo do mês fica no cartão logo abaixo.
+- **Valores escondidos com um toque:** o olhinho, ao lado do saldo (e no título das outras páginas), troca todos os valores por `R$ ••••` (também nos gráficos e no leitor de tela) e lembra a escolha neste aparelho.
+- **Categorias suas:** página própria para criar, renomear e apagar categorias de receita e de despesa. Ao apagar uma que tem lançamentos, você escolhe para onde eles vão; cada mudança fica registrada no histórico do lançamento.
+- **Extrato:** todos os lançamentos (na lista, arquivados e excluídos) com busca pela descrição, filtros por tipo, categoria, situação e datas, totais do filtro inteiro e "Carregar mais".
 - **Histórico de alterações:** tudo o que é criado, editado, arquivado, excluído ou restaurado fica registrado. O que foi **excluído** sai da lista e do saldo, mas pode ser restaurado; o que foi **arquivado** sai da lista, mas continua contando no saldo, e pode ser desarquivado.
-- **Entrar:** email e senha (com captcha da Cloudflare) ou conta Google, sem junção automática de contas.
+- **Entrar:** email e senha ou conta Google, sem junção automática de contas. Cadastro e login passam por uma verificação anti-robô: a automática do próprio CoreWallet (sem chave nenhuma) ou o captcha da Cloudflare, se as chaves estiverem configuradas.
 - **Sessão segura:** acesso de 15 minutos renovado sozinho, dispositivos conectados que dá para encerrar, proteção CSRF e limite de tentativas.
 - **Transparência:** o selo "Sessão protegida" e a tela "Minha conta" mostram só o que o código faz de verdade.
 
@@ -77,6 +82,12 @@ Como funciona, e por quê:
 - **Não juntamos contas sozinhos.** Se o email já tem conta com senha, o login com Google é recusado com uma mensagem. O email de um cadastro com senha nunca foi verificado, então juntar automaticamente permitiria que alguém que cadastrou o email de outra pessoa ficasse dono da conta depois do login dela.
 - Quem entra pelo Google pela primeira vez passa pela tela **Complete seu perfil** (só o nome). Não guardamos senha, telefone nem documento.
 
+## Verificação anti-robô
+
+Cadastro e login com senha exigem uma verificação. Sem chaves da Cloudflare, vale a **verificação automática do CoreWallet**: o navegador resolve sozinho, em segundos, um pequeno desafio de cálculo (prova de trabalho, no estilo ALTCHA) enquanto a pessoa preenche o formulário, sem clicar em nada. O servidor assina cada desafio, confere a assinatura e o prazo de 5 minutos e só aceita cada um uma vez. Para ligar/desligar: `CAPTCHA_POW=off` (a dificuldade é `POW_MAX_NUMBER`).
+
+Ela **encarece** o abuso em massa, mas não distingue pessoa de robô como um captcha com análise de comportamento. A defesa completa é junto com o limite de tentativas e, para quem publica na internet, o Turnstile abaixo (que tem prioridade quando as chaves existem).
+
 ## Captcha da Cloudflare (Turnstile)
 
 Protege o **cadastro e o login com senha**. É gratuito e não pede para clicar em semáforos.
@@ -121,7 +132,7 @@ As imagens deste README são geradas por `E2E_SCREENSHOTS=1 npm run test:e2e -- 
 | `GET /api/auth/sessions` | Lista os dispositivos com sessão aberta |
 | `DELETE /api/auth/sessions/:id` | Encerra uma sessão específica |
 | `GET /api/auth/me` | Usuário logado |
-| `GET /api/transactions?month=2026-10` | Lançamentos (mais novos primeiro), saldo geral e, com `month`, o resumo do mês por categoria |
+| `GET /api/transactions?month=2026-10` | Lançamentos (mais novos primeiro), saldo geral, os totais de **hoje** (`today`, dia do servidor em Brasília) e, com `month`, o resumo do mês por categoria |
 | `POST /api/transactions` | Cria receita (`input`) ou despesa (`output`), com categoria |
 | `GET /api/transactions/:id` | Um lançamento do próprio usuário |
 | `PUT /api/transactions/:id` | Edita valor, descrição e categoria (o tipo e a data não mudam); grava o que mudou no histórico |
@@ -132,8 +143,13 @@ As imagens deste README são geradas por `E2E_SCREENSHOTS=1 npm run test:e2e -- 
 | `POST /api/transactions/:id/unarchive` | Desarquiva |
 | `GET /api/transactions/activity` | Registro geral (últimos 100 eventos) e as listas de excluídos e arquivados (até 200 cada, com aviso de corte) |
 | `GET /api/analysis?months=3\|6\|12` | Análise financeira: série por mês, saldo inicial, categorias com o período anterior, maiores despesas |
+| `GET /api/transactions/search` | Extrato: `q`, `type`, `category`, `status` (`all`/`active`/`archived`/`deleted`), `from`/`to` (dias, AAAA-MM-DD, em Brasília), `limit` (até 100) e `cursor`; devolve também os totais do filtro inteiro |
 | `GET /api/categories` | Categorias criadas pela pessoa (as padrão vêm do pacote `shared`) |
 | `POST /api/categories` | Cria uma categoria (ou devolve a que já existe com o mesmo nome) |
+| `GET /api/categories/usage` | Quantos lançamentos usam cada categoria |
+| `PATCH /api/categories/:id` | Renomeia (os lançamentos acompanham, pois guardam o id) |
+| `DELETE /api/categories/:id?moveTo=` | Apaga; se houver lançamentos, `moveTo` diz para qual categoria do mesmo tipo eles vão |
+| `GET /api/auth/challenge` | Desafio da verificação automática (só existe quando ela está ligada) |
 
 ## Melhorias em relação ao curso
 
@@ -174,12 +190,15 @@ A lista completa entra conforme cada fase fica pronta.
 - A lista de dispositivos guarda e mostra o IP pela metade e o navegador/sistema lidos do `User-Agent`, uma leitura aproximada.
 
 - Os meses (e o dia e a hora mostrados em cada lançamento) seguem o horário de Brasília, UTC-3 fixo, igual em qualquer dispositivo. Quem usa de outro fuso vê as datas em Brasília.
+- **O horário de um lançamento é sempre o do servidor**, gravado na criação; nada que o aparelho mande (relógio, fuso) entra nele. "Hoje", "Ontem" e o mês atual também usam a hora do servidor, mesmo com o relógio do celular errado. Testado no navegador com relógio adiantado em anos, atrasado e em fusos do Japão, Los Angeles e Lisboa.
 - A data de um lançamento é a da criação e não pode ser editada; trocar o tipo (receita/despesa) exige excluir e criar de novo.
 - Cada mês mostra no máximo 500 lançamentos; acima disso a tela avisa e os totais continuam corretos.
 - O registro de alterações mostra os 100 eventos mais recentes, e as listas de excluídos e de arquivados mostram até 200 cada. A tela avisa quando há mais; restaurar ou desarquivar traz os mais antigos para a lista.
 - Lançamentos criados antes do histórico existir não têm o evento "criado"; a tela diz isso e mostra só as alterações novas.
 - O histórico é gravado logo depois da alteração, sem transação do banco: se o servidor cair entre as duas gravações, a alteração vale e o último evento pode faltar.
-- Categorias próprias ainda não podem ser renomeadas nem apagadas.
+- Apagar uma categoria move os lançamentos e grava o histórico em passos separados, sem transação do banco: se o servidor cair no meio, alguns lançamentos podem ter mudado de categoria sem o evento correspondente no histórico (a categoria só é apagada depois de tudo movido, então dá para repetir). Um lançamento criado exatamente durante a exclusão é conferido de novo e vai para "Outros" se a categoria já sumiu.
+- O extrato mostra 30 lançamentos por vez (os totais valem para todos os que combinam com o filtro). As datas aceitas vão de 2000 a 2100.
+- A verificação automática guarda os desafios já usados na memória da API (até 20 mil); reiniciar a API libera esse controle, mas os desafios continuam vencendo em 5 minutos.
 - Na análise, o mês atual ainda está em andamento (a tela avisa), então a despesa média e a comparação com o mês anterior o incluem pela metade.
 - A análise cobre no máximo 12 meses.
 

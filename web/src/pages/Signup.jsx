@@ -39,7 +39,7 @@ export default function Signup() {
   async function onSubmit({ name, email, password: pass }) {
     setApiError("");
     if (captcha && !captchaToken) {
-      setApiError(captcha.provider === "pow" ? "Aguarde a verificação de segurança terminar (leva poucos segundos) e tente de novo." : "Confirme que você não é um robô.");
+      setApiError(captcha.provider === "pow" ? "A verificação de segurança ainda não terminou. Aguarde alguns segundos ou use “Tentar de novo”, se ele aparecer." : "Confirme que você não é um robô.");
       return;
     }
     try {
