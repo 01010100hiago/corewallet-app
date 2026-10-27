@@ -18,7 +18,7 @@ const session = { startedAt: "2026-10-27T14:32:00.000Z", expiresAt: "2026-10-27T
 
 function renderChip(auth = {}) {
   const value = {
-    user: { id: "1", name: "Maria Silva", email: "maria@exemplo.com" },
+    user: { id: "1", name: "Maria Silva", email: "maria@exemplo.com", provider: "password", profileComplete: true },
     session,
     status: "authenticated",
     logout: vi.fn().mockResolvedValue(),
@@ -39,6 +39,7 @@ function renderChip(auth = {}) {
             }
           />
           <Route path="/signin" element={<p>página de login</p>} />
+          <Route path="/account" element={<p>página dos dados</p>} />
         </Routes>
       </MemoryRouter>
     </AuthContext.Provider>
@@ -89,6 +90,7 @@ describe("SessionChip", () => {
     renderChip();
     const button = screen.getByRole("button", { name: /Sessão protegida/ });
     await userEvent.click(button);
+    await userEvent.tab(); // link Seus dados
     await userEvent.tab(); // botão Sair
     expect(screen.getByRole("group", { name: "Detalhes da sessão" })).toBeInTheDocument();
     await userEvent.tab(); // sai do painel
@@ -236,6 +238,91 @@ describe("AuthProvider: erros e relógio", () => {
   });
 });
 
+describe("AuthProvider: renovação preventiva", () => {
+  function Probe() {
+    const { status, notice, session: s } = useAuth();
+    return (
+      <div>
+        <p>estado: {status}</p>
+        <p>aviso: {notice ?? "nenhum"}</p>
+        <p>acesso até: {s?.accessExpiresAt ?? "-"}</p>
+      </div>
+    );
+  }
+  const long = {
+    startedAt: new Date(NOW).toISOString(),
+    expiresAt: new Date(NOW + 30 * 24 * 3600 * 1000).toISOString(),
+    accessExpiresAt: new Date(NOW + 15 * 60 * 1000).toISOString(),
+    serverTime: new Date(NOW).toISOString(),
+  };
+  const setup = () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    vi.setSystemTime(NOW);
+    vi.spyOn(api, "get").mockResolvedValue({ data: { id: "1", name: "Maria", email: "m@e.com", session: long } });
+  };
+
+  test("renova antes de o acesso vencer e continua logada com o novo prazo", async () => {
+    setup();
+    const renewed = { ...long, accessExpiresAt: new Date(NOW + 30 * 60 * 1000).toISOString() };
+    const post = vi.spyOn(api, "post").mockResolvedValue({ data: { id: "1", name: "Maria", email: "m@e.com", session: renewed } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(13 * 60 * 1000);
+    });
+    expect(post).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(90 * 1000);
+    });
+    expect(post).toHaveBeenCalledWith("/auth/refresh");
+    expect(screen.getByText("estado: authenticated")).toBeInTheDocument();
+    expect(screen.getByText(`acesso até: ${renewed.accessExpiresAt}`)).toBeInTheDocument();
+  });
+
+  test("se o servidor recusar a renovação (401), volta ao login com o aviso de sessão vencida", async () => {
+    setup();
+    vi.spyOn(api, "post").mockRejectedValue({ response: { status: 401 } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(15 * 60 * 1000);
+    });
+    expect(screen.getByText("estado: anonymous")).toBeInTheDocument();
+    expect(screen.getByText("aviso: expired")).toBeInTheDocument();
+  });
+
+  test("queda de rede na renovação não derruba a sessão", async () => {
+    setup();
+    vi.spyOn(api, "post").mockRejectedValue(new Error("Network Error"));
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(15 * 60 * 1000);
+    });
+    expect(screen.getByText("estado: authenticated")).toBeInTheDocument();
+  });
+
+  test("ao voltar para a aba depois de dormir, renova na hora", async () => {
+    setup();
+    const post = vi.spyOn(api, "post").mockResolvedValue({ data: { id: "1", name: "Maria", email: "m@e.com", session: long } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    vi.setSystemTime(NOW + 20 * 60 * 1000);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(post).toHaveBeenCalledWith("/auth/refresh");
+  });
+});
+
 describe("connectionState", () => {
   test("separa https, local e inseguro", () => {
     expect(connectionState({ protocol: "https:", hostname: "carteira.exemplo.com" })).toBe("https");
@@ -247,6 +334,11 @@ describe("connectionState", () => {
 });
 
 describe("timeLeftLabel", () => {
+  test("sessões longas aparecem em dias", () => {
+    expect(timeLeftLabel(new Date(NOW + 30 * 24 * 3600 * 1000).toISOString(), NOW)).toBe("30 dias");
+    expect(timeLeftLabel(new Date(NOW + 26 * 3600 * 1000).toISOString(), NOW)).toBe("26 h");
+  });
+
   const at = (ms) => new Date(NOW + ms).toISOString();
   test("formata o que falta", () => {
     expect(timeLeftLabel(at(47 * 60000), NOW)).toBe("47 min");

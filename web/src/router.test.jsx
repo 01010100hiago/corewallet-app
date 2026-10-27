@@ -10,7 +10,10 @@ function open(path, { logged, down = false }) {
     if (url === "/auth/me") {
       if (down) throw new Error("Network Error");
       if (!logged) throw { response: { status: 401, data: {} } };
-      return { data: { id: "1", name: "Maria Silva", email: "m@e.com" } };
+      return { data: { id: "1", name: "Maria Silva", email: "m@e.com", provider: "password", profileComplete: true, createdAt: "2026-10-25T12:00:00.000Z" } };
+    }
+    if (url === "/auth/config") {
+      return { data: { captcha: null, google: null } };
     }
     return { data: { transactions: [], balance: 0, truncated: false } };
   });

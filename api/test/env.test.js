@@ -2,7 +2,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadEnv } from "../src/config/env.js";
 
-const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV"];
+const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY"];
 
 describe("loadEnv", () => {
   let saved;
@@ -48,5 +48,38 @@ describe("loadEnv", () => {
     assert.equal(loadEnv().cookieSecure, false);
     process.env.COOKIE_SECURE = "true";
     assert.equal(loadEnv().cookieSecure, true);
+  });
+
+  test("captcha: as duas chaves juntas ou nenhuma", () => {
+    assert.equal(loadEnv().turnstile, null);
+    process.env.TURNSTILE_SITE_KEY = "site";
+    assert.throws(() => loadEnv(), /juntas/);
+    delete process.env.TURNSTILE_SITE_KEY;
+    process.env.TURNSTILE_SECRET_KEY = "segredo";
+    assert.throws(() => loadEnv(), /juntas/);
+    process.env.TURNSTILE_SITE_KEY = "site";
+    assert.deepEqual(loadEnv().turnstile, { secret: "segredo", siteKey: "site" });
+  });
+
+  test("chaves de teste da Cloudflare: aceitas fora de produção, recusadas em produção", () => {
+    for (const secret of ["1x0000000000000000000000000000000AA", "2x0000000000000000000000000000000AA", "3x0000000000000000000000000000000AA"]) {
+      process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+      process.env.TURNSTILE_SECRET_KEY = secret;
+      assert.equal(loadEnv().turnstile.secret, secret);
+      process.env.NODE_ENV = "production";
+      assert.throws(() => loadEnv(), /chave de teste/);
+      delete process.env.NODE_ENV;
+    }
+  });
+
+  test("Google: o ID do cliente é opcional; confiança no proxy é número", () => {
+    assert.equal(loadEnv().googleClientId, "");
+    process.env.GOOGLE_CLIENT_ID = "abc.apps.googleusercontent.com";
+    assert.equal(loadEnv().googleClientId, "abc.apps.googleusercontent.com");
+    assert.equal(loadEnv().trustProxy, 0);
+    process.env.TRUST_PROXY = "1";
+    assert.equal(loadEnv().trustProxy, 1);
+    process.env.TRUST_PROXY = "lixo";
+    assert.equal(loadEnv().trustProxy, 0);
   });
 });

@@ -6,6 +6,7 @@ export function timeLeftLabel(expiresAt, now = Date.now()) {
   if (ms < 60000) return "menos de 1 min";
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
+  if (h >= 48) return `${Math.floor(h / 24)} dias`;
   const m = minutes % 60;
   return m ? `${h} h ${m} min` : `${h} h`;
 }

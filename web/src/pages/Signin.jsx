@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signinSchema } from "@corewallet/shared";
 import { useAuth } from "../context/authContext.js";
+import { useConfig } from "../context/configContext.js";
 import { getErrorMessage } from "../lib/api.js";
 import Icon from "../components/Icon.jsx";
 import Input from "../components/Input.jsx";
@@ -11,14 +12,19 @@ import PasswordField from "../components/PasswordField.jsx";
 import { Button } from "../components/Button.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import ProtectionDetails from "../components/ProtectionDetails.jsx";
+import GoogleSection from "../components/GoogleSection.jsx";
+import Turnstile from "../components/Turnstile.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 
 export default function Signin() {
   const { signin, notice } = useAuth();
-  usePageTitle("Entrar");
+  const { captcha } = useConfig();
   const navigate = useNavigate();
   const location = useLocation();
+  usePageTitle("Entrar");
   const [apiError, setApiError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
   const {
     register,
     handleSubmit,
@@ -30,17 +36,23 @@ export default function Signin() {
 
   async function onSubmit(data) {
     setApiError("");
+    if (captcha && !captchaToken) {
+      setApiError("Confirme que você não é um robô.");
+      return;
+    }
     try {
-      await signin(data);
+      await signin(captcha ? { ...data, captchaToken } : data);
       navigate("/", { replace: true });
     } catch (error) {
       setApiError(getErrorMessage(error));
+      // O token do captcha vale uma vez só: depois de enviar, precisa de um novo.
+      if (captcha) setCaptchaReset((n) => n + 1);
     }
   }
 
   return (
     <div>
-      <h1 className="text-3xl font-semibold text-pine-900">Que bom te ver</h1>
+      <h1 className="text-3xl font-semibold tracking-tight text-pine-900">Que bom te ver</h1>
       <p className="mt-1 text-muted">Entre para ver seu saldo.</p>
 
       {location.state?.registered && (
@@ -61,22 +73,26 @@ export default function Signin() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 flex flex-col gap-4">
-        <Input
-          label="Email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          placeholder="seu@email.com"
-          prefix={<Icon name="email" className="size-5" />}
-          register={register}
-          error={errors.email}
-        />
-        <PasswordField label="Senha" name="password" autoComplete="current-password" register={register} error={errors.password} />
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Entrando…" : "Entrar"}
-        </Button>
-      </form>
+      <div className="mt-6 flex flex-col gap-4">
+        <GoogleSection onError={setApiError} />
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+          <Input
+            label="Email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            placeholder="seu@email.com"
+            prefix={<Icon name="email" className="size-5" />}
+            register={register}
+            error={errors.email}
+          />
+          <PasswordField label="Senha" name="password" autoComplete="current-password" register={register} error={errors.password} />
+          {captcha && <Turnstile siteKey={captcha.siteKey} onToken={setCaptchaToken} resetKey={captchaReset} />}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Entrando…" : "Entrar"}
+          </Button>
+        </form>
+      </div>
 
       <p className="mt-6 text-center text-muted">
         Novo por aqui?{" "}

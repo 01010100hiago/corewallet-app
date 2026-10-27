@@ -8,9 +8,11 @@ import { connectDb, disconnectDb } from "../src/config/database.js";
 import User from "../src/models/User.js";
 import Transaction from "../src/models/Transaction.js";
 import { listByUser } from "../src/services/transactionService.js";
-import { testEnv, user } from "../support/helpers.js";
+import RefreshSession from "../src/models/RefreshSession.js";
+import * as sessionService from "../src/services/sessionService.js";
+import { testEnv, user, testDbUri, csrfOf } from "../support/helpers.js";
 
-const uri = process.env.TEST_DATABASE_URI;
+const uri = testDbUri("api");
 
 // Estes testes usam um Mongo de verdade. Sem TEST_DATABASE_URI eles são pulados.
 describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" }, () => {
@@ -26,7 +28,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     await User.init();
   });
   beforeEach(async () => {
-    await Promise.all([User.deleteMany({}), Transaction.deleteMany({})]);
+    await Promise.all([User.deleteMany({}), Transaction.deleteMany({}), RefreshSession.deleteMany({})]);
   });
   after(async () => {
     await mongoose.connection.dropDatabase();
@@ -37,6 +39,8 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     const agent = request.agent(app);
     await agent.post("/api/auth/signup").send(user(n)).expect(201);
     await agent.post("/api/auth/signin").send({ email: user(n).email, password: user(n).password }).expect(200);
+    // O front repete o cookie anti-CSRF num cabeçalho; o agente faz o mesmo.
+    agent.set("X-CSRF-Token", csrfOf(agent));
     return agent;
   }
 
@@ -44,7 +48,9 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     test("cria o usuário, guarda só o hash e não devolve a senha", async () => {
       const res = await request(app).post("/api/auth/signup").send(user());
       assert.equal(res.status, 201);
-      assert.deepEqual(Object.keys(res.body).sort(), ["email", "id", "name"]);
+      assert.deepEqual(Object.keys(res.body).sort(), ["createdAt", "email", "id", "name", "profileComplete", "provider"]);
+      assert.equal(res.body.provider, "password");
+      assert.equal(res.body.profileComplete, true);
 
       const saved = await User.findOne({ email: user().email }).select("+passwordHash");
       assert.match(saved.passwordHash, /^\$2[aby]\$12\$/);
@@ -105,14 +111,16 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
       assert.match(cookie, /HttpOnly/i);
       assert.match(cookie, /SameSite=Lax/i);
       assert.match(cookie, /Path=\/api/);
-      assert.match(cookie, /Max-Age=3600/);
+      assert.match(cookie, /Max-Age=900/);
     });
 
     test("o login devolve quando a sessão começou e quando vence", async () => {
       await request(app).post("/api/auth/signup").send(user()).expect(201);
       const res = await request(app).post("/api/auth/signin").send({ email: user().email, password: user().password });
       assert.ok(res.body.session.startedAt);
-      assert.equal(new Date(res.body.session.expiresAt) - new Date(res.body.session.startedAt), 3600 * 1000);
+      assert.equal(new Date(res.body.session.expiresAt) - new Date(res.body.session.startedAt), 30 * 24 * 3600 * 1000);
+      const access = new Date(res.body.session.accessExpiresAt) - new Date(res.body.session.serverTime);
+      assert.ok(access > 14 * 60 * 1000 && access <= 15 * 60 * 1000, "o token de acesso dura 15 minutos");
     });
 
     test("cadastro recusa senha comum", async () => {
@@ -143,7 +151,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
       const me = await agent.get("/api/auth/me").expect(200);
       assert.equal(me.body.email, user().email);
       const { startedAt, expiresAt } = me.body.session;
-      assert.equal(new Date(expiresAt) - new Date(startedAt), 3600 * 1000);
+      assert.equal(new Date(expiresAt) - new Date(startedAt), 30 * 24 * 3600 * 1000);
       assert.ok(new Date(expiresAt) > new Date());
       assert.ok(Math.abs(new Date(me.body.session.serverTime) - Date.now()) < 5000);
 
@@ -154,38 +162,55 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
   });
 
   describe("token", () => {
-    async function savedUserId() {
+    // Cria usuário e uma sessão de verdade; os testes fabricam tokens para ela.
+    async function savedSession() {
       await request(app).post("/api/auth/signup").send(user()).expect(201);
-      return String((await User.findOne({ email: user().email }))._id);
+      const id = String((await User.findOne({ email: user().email }))._id);
+      const { session } = await sessionService.open(id, {});
+      return { id, sid: session.id };
     }
     const withCookie = (token) => request(app).get("/api/auth/me").set("Cookie", `cw_session=${token}`);
+    const sign = (payload, options = { expiresIn: 60 }, secret = testEnv.jwtSecret) => jwt.sign(payload, secret, options);
 
     test("aceita token válido assinado pela API", async () => {
-      const id = await savedUserId();
-      const token = jwt.sign({ sub: id }, testEnv.jwtSecret, { expiresIn: 60 });
-      await withCookie(token).expect(200);
+      const { id, sid } = await savedSession();
+      await withCookie(sign({ sub: id, sid })).expect(200);
     });
 
     test("recusa token vencido, de outro segredo, sem assinatura e lixo", async () => {
-      const id = await savedUserId();
-      const expired = jwt.sign({ sub: id }, testEnv.jwtSecret, { expiresIn: -10 });
-      const otherSecret = jwt.sign({ sub: id }, "outro-segredo-qualquer-com-32-caracteres", { expiresIn: 60 });
-      const none = `${Buffer.from('{"alg":"none","typ":"JWT"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: id })).toString("base64url")}.`;
+      const { id, sid } = await savedSession();
+      const expired = sign({ sub: id, sid }, { expiresIn: -10 });
+      const otherSecret = sign({ sub: id, sid }, { expiresIn: 60 }, "outro-segredo-qualquer-com-32-caracteres");
+      const none = `${Buffer.from('{"alg":"none","typ":"JWT"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: id, sid })).toString("base64url")}.`;
       for (const token of [expired, otherSecret, none, "lixo", ""]) {
         await withCookie(token).expect(401);
       }
     });
 
     test("recusa token de usuário que foi apagado", async () => {
-      const id = await savedUserId();
-      const token = jwt.sign({ sub: id }, testEnv.jwtSecret, { expiresIn: 60 });
+      const { id, sid } = await savedSession();
+      const token = sign({ sub: id, sid });
       await User.deleteMany({});
       await withCookie(token).expect(401);
     });
 
+    test("recusa token cuja sessão foi encerrada ou nunca existiu, e token sem sid", async () => {
+      const { id, sid } = await savedSession();
+      await withCookie(sign({ sub: id })).expect(401);
+      await withCookie(sign({ sub: id, sid: String(new mongoose.Types.ObjectId()) })).expect(401);
+      await RefreshSession.deleteMany({});
+      await withCookie(sign({ sub: id, sid })).expect(401);
+    });
+
+    test("recusa sessão de outro usuário", async () => {
+      const { sid } = await savedSession();
+      const other = String(new mongoose.Types.ObjectId());
+      await withCookie(sign({ sub: other, sid })).expect(401);
+    });
+
     test("recusa sub que não é um ObjectId", async () => {
-      const token = jwt.sign({ sub: { $ne: null } }, testEnv.jwtSecret, { expiresIn: 60 });
-      await withCookie(token).expect(401);
+      const { sid } = await savedSession();
+      await withCookie(sign({ sub: { $ne: null }, sid })).expect(401);
     });
   });
 
@@ -208,13 +233,15 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
       const res = await agent.get("/api/transactions").expect(200);
       assert.deepEqual(res.body.transactions.map((t) => t.description), ["terceiro", "segundo", "primeiro"]);
       assert.equal(res.body.balance, 10000 - 550 - 10);
+      assert.equal(res.body.totalIn, 10000);
+      assert.equal(res.body.totalOut, 560);
       assert.equal(res.body.truncated, false);
     });
 
     test("saldo vazio é zero", async () => {
       const agent = await loggedAgent();
       const res = await agent.get("/api/transactions").expect(200);
-      assert.deepEqual(res.body, { balance: 0, truncated: false, transactions: [] });
+      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, transactions: [] });
     });
 
     test("lista cortada pelo limite continua com o saldo de todos os lançamentos", async () => {

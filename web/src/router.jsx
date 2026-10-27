@@ -7,6 +7,8 @@ import Home from "./pages/Home.jsx";
 import Signin from "./pages/Signin.jsx";
 import Signup from "./pages/Signup.jsx";
 import NewTransaction from "./pages/NewTransaction.jsx";
+import Welcome from "./pages/Welcome.jsx";
+import Account from "./pages/Account.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 
 export const routes = [
@@ -22,7 +24,12 @@ export const routes = [
             children: [
               { path: "/", element: <Home /> },
               { path: "/transaction/:type", element: <NewTransaction /> },
+              { path: "/account", element: <Account /> },
             ],
+          },
+          {
+            element: <AuthShell />,
+            children: [{ path: "/welcome", element: <Welcome /> }],
           },
         ],
       },

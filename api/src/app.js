@@ -5,6 +5,10 @@ import healthRouter from "./routes/healthRoutes.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
 import { createTransactionRouter } from "./routes/transactionRoutes.js";
 import { createAuthMiddleware } from "./middlewares/authMiddleware.js";
+import { createCaptcha } from "./services/captchaService.js";
+import { createCsrf } from "./middlewares/csrf.js";
+import { createLimiters } from "./middlewares/rateLimit.js";
+import { createGoogleVerifier } from "./services/googleService.js";
 
 // Mensagem que pode ir para o cliente. Erros do parser de JSON trazem detalhes
 // internos, então viram frases fixas; o resto só aparece se for marcado como público.
@@ -15,11 +19,18 @@ function publicMessage(err, status) {
   return "Erro interno";
 }
 
-export function createApp(env) {
+// deps permite trocar captcha e Google por versões de teste.
+export function createApp(env, deps = {}) {
   const app = express();
+  const captcha = deps.captcha ?? createCaptcha(env.turnstile);
+  const google = deps.google ?? createGoogleVerifier(env.googleClientId);
   const authMiddleware = createAuthMiddleware(env.jwtSecret);
+  // env.rateLimits só existe nos testes (false desliga, objeto troca os limites).
+  const limiters = createLimiters(env.rateLimits);
 
   app.disable("x-powered-by");
+  // Atrás do nginx, req.ip só é o IP da pessoa se a API confiar no cabeçalho dele.
+  if (env.trustProxy) app.set("trust proxy", env.trustProxy);
   app.use(helmet());
   app.use(express.json({ limit: "10kb" }));
   app.use(cookieParser());
@@ -31,7 +42,8 @@ export function createApp(env) {
   });
 
   app.use("/api", healthRouter);
-  app.use("/api/auth", createAuthRouter(env, authMiddleware));
+  app.use("/api", limiters.general, createCsrf(env));
+  app.use("/api/auth", createAuthRouter({ env, captcha, google }, authMiddleware, limiters));
   app.use("/api/transactions", createTransactionRouter(authMiddleware));
 
   app.use((req, res) => {

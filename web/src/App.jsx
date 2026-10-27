@@ -1,12 +1,13 @@
-import { Outlet } from "react-router-dom";
 import { AuthProvider } from "./context/AuthProvider.jsx";
-import PageFocus from "./components/PageFocus.jsx";
+import { ConfigProvider } from "./context/ConfigProvider.jsx";
+import AppGate from "./components/AppGate.jsx";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <PageFocus />
-      <Outlet />
-    </AuthProvider>
+    <ConfigProvider>
+      <AuthProvider>
+        <AppGate />
+      </AuthProvider>
+    </ConfigProvider>
   );
 }

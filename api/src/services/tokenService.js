@@ -1,37 +1,32 @@
 import jwt from "jsonwebtoken";
 
 const ALGORITHM = "HS256";
-export const ACCESS_TTL_SECONDS = 60 * 60;
+// O token de acesso é curto de propósito: quem o copiar tem poucos minutos. A
+// sessão em si dura mais e é renovada com o token de renovação (ver sessionService).
+export const ACCESS_TTL_SECONDS = 15 * 60;
 
-export function signAccessToken(userId, secret) {
-  return jwt.sign({ sub: String(userId) }, secret, {
+export function signAccessToken(userId, sessionId, secret) {
+  return jwt.sign({ sub: String(userId), sid: String(sessionId) }, secret, {
     algorithm: ALGORITHM,
     expiresIn: ACCESS_TTL_SECONDS,
   });
 }
 
-// Devolve { userId, startedAt, expiresAt } (datas ISO) ou null se o token for
-// inválido ou estiver vencido.
+// Devolve { userId, sessionId, expiresAt } ou null se o token for inválido ou vencido.
 export function verifyAccessToken(token, secret) {
   try {
-    return sessionFromPayload(jwt.verify(token, secret, { algorithms: [ALGORITHM] }));
+    return fromPayload(jwt.verify(token, secret, { algorithms: [ALGORITHM] }));
   } catch {
     return null;
   }
 }
 
-// O token que acabou de ser assinado também precisa informar quando vence.
-export function readSession(token) {
-  return sessionFromPayload(jwt.decode(token));
+// Quando o token recém-assinado vence (ISO).
+export function accessExpiry(token) {
+  return fromPayload(jwt.decode(token))?.expiresAt ?? null;
 }
 
-function sessionFromPayload(payload) {
-  if (typeof payload?.sub !== "string" || !Number.isFinite(payload.iat) || !Number.isFinite(payload.exp)) {
-    return null;
-  }
-  return {
-    userId: payload.sub,
-    startedAt: new Date(payload.iat * 1000).toISOString(),
-    expiresAt: new Date(payload.exp * 1000).toISOString(),
-  };
+function fromPayload(payload) {
+  if (typeof payload?.sub !== "string" || typeof payload?.sid !== "string" || !Number.isFinite(payload.exp)) return null;
+  return { userId: payload.sub, sessionId: payload.sid, expiresAt: new Date(payload.exp * 1000).toISOString() };
 }

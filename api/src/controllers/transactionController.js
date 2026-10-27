@@ -15,7 +15,7 @@ export const transactionController = {
   },
 
   async list(req, res) {
-    const { transactions, balance, truncated } = await transactionService.listByUser(req.user.id);
-    res.json({ balance, truncated, transactions: transactions.map(publicTransaction) });
+    const { transactions, balance, totalIn, totalOut, truncated } = await transactionService.listByUser(req.user.id);
+    res.json({ balance, totalIn, totalOut, truncated, transactions: transactions.map(publicTransaction) });
   },
 };

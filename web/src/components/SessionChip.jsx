@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useAuth } from "../context/authContext.js";
 import { connectionState } from "../lib/connection.js";
@@ -100,7 +100,8 @@ export default function SessionChip() {
           <dl className="mt-4 flex flex-col gap-2.5 border-t border-line pt-3 text-sm">
             {session && (
               <>
-                <Row label="Sessão iniciada" value={dayjs(session.startedAt).format("HH:mm")} />
+                <Row label="Entrou com" value={user?.provider === "google" ? "Google" : "Email e senha"} />
+                <Row label="Sessão iniciada" value={dayjs(session.startedAt).format(dayjs(session.startedAt).isSame(now(), "day") ? "HH:mm" : "DD/MM HH:mm")} />
                 <Row label="Vence em" value={timeLeftLabel(session.expiresAt, now())} />
               </>
             )}
@@ -113,7 +114,15 @@ export default function SessionChip() {
             </div>
           )}
 
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-2">
+            <Link
+              to="/account"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
+            >
+              <Icon name="pessoa" className="size-5" />
+              Seus dados
+            </Link>
             <Button variant="soft" icon="sair" onClick={handleLogout}>
               Sair
             </Button>

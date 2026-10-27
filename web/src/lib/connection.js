@@ -7,3 +7,14 @@ export function connectionState({ protocol, hostname }) {
   const local = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname.endsWith(".localhost");
   return local ? "local" : "insecure";
 }
+
+// Passo "Conexão" mostrado no splash e na tela de entrada com o Google.
+const STEPS = {
+  https: { label: "Conexão criptografada (HTTPS)", state: "done" },
+  local: { label: "Conexão local, neste computador", state: "done" },
+  insecure: { label: "Conexão sem HTTPS", state: "warn" },
+};
+
+export function connectionStep(location) {
+  return STEPS[connectionState(location)];
+}

@@ -16,14 +16,16 @@ async function balanceOf(userId) {
   ]);
   const sum = (type) => rows.find((r) => r._id === type)?.total ?? 0;
   const count = rows.reduce((n, r) => n + r.count, 0);
-  return { balance: sum("input") - sum("output"), count };
+  const totalIn = sum("input");
+  const totalOut = sum("output");
+  return { balance: totalIn - totalOut, totalIn, totalOut, count };
 }
 
 // Sempre filtra pelo dono: um usuário nunca enxerga lançamento de outro.
 export async function listByUser(userId, limit = LIST_LIMIT) {
-  const [transactions, { balance, count }] = await Promise.all([
+  const [transactions, { balance, totalIn, totalOut, count }] = await Promise.all([
     Transaction.find({ userId }).sort({ createdAt: -1, _id: -1 }).limit(limit).lean(),
     balanceOf(userId),
   ]);
-  return { transactions, balance, truncated: count > transactions.length };
+  return { transactions, balance, totalIn, totalOut, truncated: count > transactions.length };
 }

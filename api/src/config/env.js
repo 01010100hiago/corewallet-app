@@ -1,5 +1,10 @@
 const REQUIRED = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN"];
 const JWT_SECRET_MIN = 32;
+const DUMMY_TURNSTILE_SECRETS = new Set([
+  "1x0000000000000000000000000000000AA", // sempre passa
+  "2x0000000000000000000000000000000AA", // sempre falha
+  "3x0000000000000000000000000000000AA", // token já usado
+]);
 
 // Lê as variáveis de ambiente e para a API na hora se faltar alguma ou se algo estiver fraco.
 export function loadEnv() {
@@ -25,8 +30,26 @@ export function loadEnv() {
     console.warn("Aviso: cookie de sessão sem o flag Secure. Use COOKIE_SECURE=true ao servir por HTTPS.");
   }
 
+  // Chaves de teste públicas da Cloudflare: o captcha sempre passa. Servem para
+  // desenvolver, e nunca podem ir para produção.
+  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY || "";
+  const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY || "";
+  if (Boolean(turnstileSecret) !== Boolean(turnstileSiteKey)) {
+    throw new Error("Defina TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY juntas, ou nenhuma das duas");
+  }
+  if (production && DUMMY_TURNSTILE_SECRETS.has(turnstileSecret)) {
+    throw new Error("TURNSTILE_SECRET_KEY é uma chave de teste da Cloudflare (o captcha sempre passa). Use a chave real em produção");
+  }
+  if (production && !turnstileSecret) {
+    console.warn("Aviso: captcha desligado. Defina TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY para proteger o login.");
+  }
+
   return {
     port: Number(process.env.PORT) || 4000,
+    // Quantos proxies confiáveis (o nginx) ficam na frente. 0 = nenhum.
+    trustProxy: Number(process.env.TRUST_PROXY) || 0,
+    googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+    turnstile: turnstileSecret ? { secret: turnstileSecret, siteKey: turnstileSiteKey } : null,
     databaseUri: process.env.DATABASE_URI,
     jwtSecret: process.env.JWT_SECRET,
     webOrigin: process.env.WEB_ORIGIN,

@@ -30,6 +30,15 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       # Cookie "Secure" só funciona em HTTPS. Use true quando for publicar.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # O nginx fica na frente da API: confiar no IP que ele repassa.
+      TRUST_PROXY: 1
+      # Login com Google e captcha da Cloudflare: vazios = desligados.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # "production" recusa as chaves de teste da Cloudflare. Para testar com elas
+      # no seu computador, ponha NODE_ENV_API=development no .env.
+      NODE_ENV: ${NODE_ENV_API:-production}
     depends_on:
       mongo:
         condition: service_healthy

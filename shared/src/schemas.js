@@ -34,16 +34,29 @@ const capitalize = (name) =>
 // se aplica: quem já tem conta com uma senha fraca precisa conseguir entrar.
 const newPassword = password.refine((p) => !isCommonPassword(p), "Essa senha é muito comum. Escolha outra");
 
+const name = z
+  .string({ error: "O nome é obrigatório" })
+  .trim()
+  .min(3, "O nome precisa ter no mínimo 3 caracteres")
+  .max(80, "O nome pode ter no máximo 80 caracteres")
+  .transform(capitalize);
+
 export const signupSchema = z.object({
-  name: z
-    .string({ error: "O nome é obrigatório" })
-    .trim()
-    .min(3, "O nome precisa ter no mínimo 3 caracteres")
-    .max(80, "O nome pode ter no máximo 80 caracteres")
-    .transform(capitalize),
+  name,
   email,
   password: newPassword,
 });
+
+// Tela "Complete seu perfil" (primeiro acesso com o Google): só o nome.
+export const profileSchema = z.object({ name });
+
+// Token que o botão do Google entrega ao navegador (um JWT).
+export const googleCredentialSchema = z.object({
+  credential: z.string({ error: "Credencial do Google ausente" }).min(20, "Credencial do Google inválida").max(4096, "Credencial do Google inválida"),
+});
+
+// Texto de limite do campo, para o front e a API usarem o mesmo.
+export const NAME_MAX = 80;
 
 // Formulário de cadastro: o mesmo schema da API mais a confirmação da senha.
 export const signupFormSchema = signupSchema

@@ -45,7 +45,7 @@ function TransactionForm({ type }) {
     try {
       // O valor segue como o usuário digitou ("12,50"); a API converte em centavos.
       await api.post("/transactions", { ...data, type });
-      navigate("/");
+      navigate("/", { state: { saved: true } });
     } catch (error) {
       if (error.response?.status === 401) return expire();
       // Sem resposta (rede caiu ou demorou demais) o servidor pode ter gravado mesmo assim.

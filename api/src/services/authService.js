@@ -29,8 +29,49 @@ export async function signup({ name, email, password }) {
 }
 
 export async function signin({ email, password }) {
+  // Conta criada pelo Google não tem senha: cai no mesmo erro genérico (e gasta o
+  // mesmo tempo) de qualquer outro login errado.
   const user = await User.findOne({ email }).select("+passwordHash");
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok) throw new AuthError("Email ou senha incorretos", 401);
+  return user;
+}
+
+// Entrada pelo Google. Contas só se juntam pelo identificador do Google (sub).
+// Se o email já tem conta de senha NÃO juntamos sozinhos: o email do cadastro com
+// senha nunca foi verificado, então alguém poderia ter criado essa conta antes
+// com o email da vítima e ficaria dono dela depois do login com o Google.
+export async function googleSignin({ googleId, email, name }) {
+  const byGoogle = await User.findOne({ googleId });
+  if (byGoogle) return byGoogle;
+
+  if (await User.exists({ email })) {
+    throw new AuthError("Já existe uma conta com este email. Entre com o email e a senha.", 409);
+  }
+
+  try {
+    return await User.create({
+      name: (name || email.split("@")[0]).slice(0, 80),
+      email,
+      googleId,
+      provider: "google",
+      emailVerified: true,
+      profileComplete: false,
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      // Corrida: a conta apareceu entre a checagem e a criação.
+      const again = await User.findOne({ googleId });
+      if (again) return again;
+      throw new AuthError("Já existe uma conta com este email. Entre com o email e a senha.", 409);
+    }
+    throw err;
+  }
+}
+
+export async function completeProfile(user, { name }) {
+  user.name = name;
+  user.profileComplete = true;
+  await user.save();
   return user;
 }

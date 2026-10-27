@@ -12,7 +12,7 @@ const POINTS = [
 export default function AuthShell() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-      <aside className="on-dark flex flex-col gap-6 bg-pine-900 px-6 py-6 text-mint-50 lg:gap-10 lg:px-14 lg:py-12">
+      <aside className="on-dark flex flex-col gap-6 bg-pine-900 bg-[radial-gradient(60rem_40rem_at_-10%_-10%,rgba(31,122,93,0.6),transparent_60%)] px-6 py-6 text-mint-50 lg:gap-10 lg:px-14 lg:py-12">
         <Logo tone="light" />
         <Illustration className="mx-auto hidden w-full max-w-md lg:block" />
         <div className="lg:mt-auto">
