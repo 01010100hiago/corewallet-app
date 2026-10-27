@@ -1,0 +1,20 @@
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react-swc";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    // Em desenvolvimento o front chama /api no próprio endereço,
+    // igual em produção, onde o nginx encaminha /api para a API.
+    proxy: {
+      "/api": "http://localhost:4000",
+    },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.js"],
+    globals: false,
+    restoreMocks: true,
+  },
+});

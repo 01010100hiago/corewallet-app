@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pine-950: #0a3a2d;
+  --color-pine-900: #0e4d3c;
+  --color-pine-800: #165f4a;
+  --color-pine-700: #1f7a5d;
+  --color-mint-50: #f1faf5;
+  --color-mint-100: #e3f3ea;
+  --color-mint-300: #8fe0bd;
+  --color-canvas: #f6f7f3;
+  --color-line: #d5dcd6;
+  --color-ink: #14261f;
+  --color-muted: #55665e;
+  --color-coral-500: #ff6b4a;
+  --color-coral-400: #ff8466;
+  --color-coral-100: #ffe4dd;
+  --color-coral-800: #8a2c18;
+  --color-coral-950: #2a0f08;
+  --color-positive: #17784c;
+  --color-negative: #b83325;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* Ícones próprios (components/Icon.jsx): duas tonalidades.
+   A cor do traço vem do texto (currentColor); o acento vem de --icon-accent. */
+:root {
+  --icon-accent: #ff6b4a;
+}
+.ic {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ic .t { fill: currentColor; fill-opacity: 0.09; stroke: none; }
+.ic .a { stroke: var(--icon-accent); }
+.ic .f { fill: var(--icon-accent); stroke: none; }
+.ic .k { fill: var(--icon-accent); fill-opacity: 0.24; stroke: none; }
+.ic .d { fill: currentColor; stroke: none; }
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--color-pine-700));
+  outline-offset: 2px;
+}
+
+/* Sobre fundos escuros (cartão de saldo, painel de marca) o anel precisa de outra cor. */
+.on-dark {
+  --focus-ring: var(--color-mint-300);
+}
+
+h1:focus {
+  outline: none;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
