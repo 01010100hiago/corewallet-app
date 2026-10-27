@@ -4,7 +4,7 @@
 
 Carteira de entradas e saídas, inspirada no projeto do curso de React da [DIO](https://www.dio.me/) ([SPA original](https://github.com/codethi/diowallet-spa) · [API original](https://github.com/codethi/diowallet-api)), com front e API no mesmo repositório e melhorias de segurança.
 
-> Em construção. Fase atual: **2 — sessão reforçada** (renovação por refresh token rotativo, CSRF, limite de tentativas e lista de aparelhos), sobre as telas e o fluxo da Fase 1.
+> Em construção. Fase atual: **3 — lançamentos completos** (categorias, editar, excluir, filtro por mês e gráfico), sobre a sessão reforçada da Fase 2 e as telas da Fase 1.
 
 ## Stack
 
@@ -85,8 +85,11 @@ A API confere o token com a Cloudflare a cada cadastro e login. Se a Cloudflare 
 | `GET /api/auth/sessions` | Lista os aparelhos com sessão aberta |
 | `DELETE /api/auth/sessions/:id` | Encerra uma sessão específica |
 | `GET /api/auth/me` | Usuário logado |
-| `GET /api/transactions` | Lançamentos do usuário (mais novos primeiro) e o saldo de todos |
-| `POST /api/transactions` | Cria entrada ou saída |
+| `GET /api/transactions?month=2026-10` | Lançamentos (mais novos primeiro), saldo geral e, com `month`, o resumo do mês por categoria |
+| `POST /api/transactions` | Cria entrada ou saída, com categoria |
+| `GET /api/transactions/:id` | Um lançamento do próprio usuário |
+| `PUT /api/transactions/:id` | Edita valor, descrição e categoria (o tipo e a data não mudam) |
+| `DELETE /api/transactions/:id` | Exclui um lançamento do próprio usuário |
 
 ## Melhorias em relação ao curso
 
@@ -105,6 +108,9 @@ A lista completa entra conforme cada fase fica pronta.
 - **Texto honesto:** a interface só afirma o que o código faz de verdade. Exportar dados e excluir a conta ainda não existem, e a tela diz isso.
 - **Respostas da API com `Cache-Control: no-store`**, para dados da pessoa logada não ficarem em cache.
 - **Acessibilidade:** rótulos visíveis, foco que vai para o título a cada troca de página, anel de foco legível em fundo claro e escuro, regras da senha lidas por leitor de tela, título de aba por tela.
+- **Categorias que combinam com o tipo:** "Salário" não existe numa saída. A regra fica no pacote `shared`, e a API a aplica na criação e na edição. Lançamentos antigos, sem categoria, contam como "Outros".
+- **Editar e excluir só o que é seu:** id de outra pessoa responde 404, igual a "não existe". Excluir pede confirmação na linha e só tira o item da tela depois que a API confirma; o foco do teclado acompanha a confirmação.
+- **Mês e gráfico calculados no banco:** a tela mostra um mês por vez (`?mes=2026-10` na URL), com entradas, saídas e "Para onde foi o dinheiro" (saídas por categoria). O saldo continua sendo o de todos os lançamentos.
 - **Dinheiro em centavos inteiros**, sem erro de ponto flutuante; saldo calculado no banco.
 
 - Front e API no mesmo domínio: o nginx serve o front e encaminha `/api` para a API.
@@ -118,6 +124,10 @@ A lista completa entra conforme cada fase fica pronta.
 - O cadastro avisa quando o email já existe (409). Esconder isso exige verificar o email, que ainda não existe; o limite de cadastros por IP reduz o abuso.
 - O limite de tentativas por conta pode ser usado para travar o login de alguém por alguns minutos (de um IP só, com o email da pessoa). A chave IP + email limita isso a quem está no mesmo IP.
 - A lista de aparelhos guarda e mostra o IP pela metade e o navegador/sistema lidos do `User-Agent`, uma leitura aproximada.
+
+- Os meses (e o dia e a hora mostrados em cada lançamento) seguem o horário de Brasília, UTC-3 fixo, igual em qualquer aparelho. Quem usa de outro fuso vê as datas em Brasília.
+- A data de um lançamento é a da criação e não pode ser editada; trocar o tipo (entrada/saída) exige excluir e criar de novo.
+- Cada mês mostra no máximo 500 lançamentos; acima disso a tela avisa e os totais continuam corretos.
 
 ## Licença
 

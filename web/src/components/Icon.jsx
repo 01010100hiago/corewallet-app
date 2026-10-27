@@ -96,6 +96,32 @@ const paths = {
       <circle className="f" cx={8} cy={14.5} r={1.4} />
     </>
   ),
+  editar: (
+    <>
+      <path className="t" d="M15.6 4.4 a2.1 2.1 0 0 1 3 0 l1 1 a2.1 2.1 0 0 1 0 3 L9.2 18.4 L4.5 19.5 L5.6 14.8 Z" />
+      <path d="M15.6 4.4 a2.1 2.1 0 0 1 3 0 l1 1 a2.1 2.1 0 0 1 0 3 L9.2 18.4 L4.5 19.5 L5.6 14.8 Z" />
+      <path className="a" d="M13.6 6.4 L17.6 10.4" />
+      <path d="M5.6 14.8 L9.2 18.4" />
+    </>
+  ),
+  lixeira: (
+    <>
+      <path className="t" d="M6.2 8 H17.8 L17 18.6 a2.2 2.2 0 0 1 -2.2 2 H9.2 a2.2 2.2 0 0 1 -2.2 -2 Z" />
+      <path d="M6.2 8 H17.8 L17 18.6 a2.2 2.2 0 0 1 -2.2 2 H9.2 a2.2 2.2 0 0 1 -2.2 -2 Z" />
+      <path d="M4.5 8 H19.5" />
+      <path className="a" d="M9.5 8 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h1.8 a1.6 1.6 0 0 1 1.6 1.6 V8" />
+      <path d="M10 11.6 V16.6 M14 11.6 V16.6" />
+    </>
+  ),
+  grafico: (
+    <>
+      <rect className="t" x={3} y={3.5} width={18} height={17} rx={3.5} />
+      <rect x={3} y={3.5} width={18} height={17} rx={3.5} />
+      <path d="M7.5 9 H13" />
+      <path d="M7.5 12.5 H16.5" />
+      <path className="a" d="M7.5 16 H11" />
+    </>
+  ),
   sair: (
     <>
       <path d="M10 4 H6.5 a3 3 0 0 0 -3 3 V17 a3 3 0 0 0 3 3 H10" />

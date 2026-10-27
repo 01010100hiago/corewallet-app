@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { parseToCents } from "./money.js";
+import { ALL_CATEGORY_IDS, DEFAULT_CATEGORY, isCategoryOf } from "./categories.js";
+import { isMonthKey } from "./months.js";
 import { isCommonPassword, fitsBcrypt, PASSWORD_MAX_BYTES } from "./password.js";
 
 export const PASSWORD_MIN = 8;
@@ -81,7 +83,7 @@ export const TRANSACTION_TYPES = ["input", "output"];
 
 // Entrada do formulário e do corpo da API: o valor chega em reais ("12,50")
 // e sai em centavos (inteiro).
-export const transactionSchema = z.object({
+const transactionFields = {
   value: z
     .union([z.string(), z.number()], { error: "O valor é obrigatório" })
     .transform((raw, ctx) => {
@@ -105,5 +107,28 @@ export const transactionSchema = z.object({
     .trim()
     .min(3, "A descrição precisa ter no mínimo 3 caracteres")
     .max(100, "A descrição pode ter no máximo 100 caracteres"),
-  type: z.enum(TRANSACTION_TYPES, { error: "Tipo inválido" }),
+  category: z.enum(ALL_CATEGORY_IDS, { error: "Categoria inválida" }).default(DEFAULT_CATEGORY),
+};
+
+// Campos que o formulário (e a edição) controlam. O tipo vem da tela/URL.
+export const transactionFormSchema = z.object(transactionFields);
+// Na edição a categoria é obrigatória: sem ela o padrão ("outros") apagaria, em silêncio,
+// a categoria que o lançamento já tinha.
+export const transactionUpdateSchema = z.object({
+  ...transactionFields,
+  category: z.enum(ALL_CATEGORY_IDS, { error: "A categoria é obrigatória" }),
+});
+
+// Corpo de POST /transactions: a categoria precisa ser do tipo (não existe "Salário" numa saída).
+export const transactionSchema = z
+  .object({ ...transactionFields, type: z.enum(TRANSACTION_TYPES, { error: "Tipo inválido" }) })
+  .superRefine((data, ctx) => {
+    if (!isCategoryOf(data.type, data.category)) {
+      ctx.addIssue({ code: "custom", path: ["category"], message: "Categoria não combina com o tipo do lançamento" });
+    }
+  });
+
+// ?month=YYYY-MM em GET /transactions (opcional).
+export const listQuerySchema = z.object({
+  month: z.string().refine(isMonthKey, "Mês inválido. Use o formato 2026-10").optional(),
 });

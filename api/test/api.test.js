@@ -241,7 +241,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     test("saldo vazio é zero", async () => {
       const agent = await loggedAgent();
       const res = await agent.get("/api/transactions").expect(200);
-      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, transactions: [] });
+      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, month: null, transactions: [] });
     });
 
     test("lista cortada pelo limite continua com o saldo de todos os lançamentos", async () => {
@@ -251,7 +251,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
         await agent.post("/api/transactions").send({ type: "input", value: `${i}`, description: `entrada ${i}` });
       }
       await agent.post("/api/transactions").send({ type: "output", value: "1", description: "saída" });
-      const out = await listByUser(userId, 2);
+      const out = await listByUser(userId, { limit: 2 });
       assert.equal(out.transactions.length, 2);
       assert.equal(out.truncated, true);
       assert.equal(out.balance, (1 + 2 + 3 + 4 + 5 - 1) * 100);

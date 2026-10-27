@@ -55,7 +55,9 @@ export function createApp(env, deps = {}) {
   app.use((err, req, res, next) => {
     const status = err.status || 500;
     if (status >= 500) console.error(err);
-    res.status(status).json({ message: publicMessage(err, status) });
+    const body = { message: publicMessage(err, status) };
+    if (status === 422 && err.errors) body.errors = err.errors;
+    res.status(status).json(body);
   });
 
   return app;

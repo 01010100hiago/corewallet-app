@@ -168,7 +168,7 @@ describe("NewTransaction", () => {
     await userEvent.type(screen.getByLabelText("Descrição"), "  Mercado ");
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
-    expect(post).toHaveBeenCalledWith("/transactions", { value: "19,90", description: "  Mercado ", type: "output" });
+    expect(post).toHaveBeenCalledWith("/transactions", { value: "19,90", description: "  Mercado ", category: "outros", type: "output" });
     expect(await screen.findByText("página inicial")).toBeInTheDocument();
   });
 

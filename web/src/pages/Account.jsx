@@ -1,8 +1,8 @@
-import dayjs from "dayjs";
 import { useAuth } from "../context/authContext.js";
 import DataWeKeep from "../components/DataWeKeep.jsx";
 import Devices from "../components/Devices.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
+import { inBrasilia } from "../lib/brasilia.js";
 
 const PROVIDERS = { google: "Google", password: "Email e senha" };
 
@@ -15,7 +15,7 @@ export default function Account() {
     ["Nome", user.name],
     ["Email", user.email],
     ["Entra com", PROVIDERS[user.provider] ?? user.provider],
-    ["Conta criada em", dayjs(user.createdAt).format("DD/MM/YYYY")],
+    ["Conta criada em", inBrasilia(user.createdAt).format("DD/MM/YYYY")],
   ];
 
   return (

@@ -44,7 +44,15 @@ export function loadEnv() {
     console.warn("Aviso: captcha desligado. Defina TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY para proteger o login.");
   }
 
+  // Só para os testes de ponta a ponta, que criam muitas contas do mesmo IP.
+  // Em produção desligar o limite de tentativas é erro, não opção.
+  const rateLimitsOff = process.env.RATE_LIMITS === "off";
+  if (rateLimitsOff && production) {
+    throw new Error("RATE_LIMITS=off não pode ser usado em produção");
+  }
+
   return {
+    rateLimits: rateLimitsOff ? false : undefined,
     port: Number(process.env.PORT) || 4000,
     // Quantos proxies confiáveis (o nginx) ficam na frente. 0 = nenhum.
     trustProxy: Number(process.env.TRUST_PROXY) || 0,

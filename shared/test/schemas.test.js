@@ -5,6 +5,18 @@ import {
   signupFormSchema,
   signinSchema,
   transactionSchema,
+  transactionFormSchema,
+  transactionUpdateSchema,
+  listQuerySchema,
+  CATEGORIES,
+  isCategoryOf,
+  categoryLabel,
+  ALL_CATEGORY_IDS,
+  isMonthKey,
+  monthRange,
+  monthKeyOf,
+  shiftMonth,
+  monthLabel,
   parseToCents,
   formatCents,
   evaluatePassword,
@@ -68,7 +80,7 @@ test("formulário de cadastro exige senhas iguais", () => {
 
 test("transaction converte reais em centavos", () => {
   const out = transactionSchema.parse({ value: "19,90", description: "Almoço", type: "output" });
-  assert.deepEqual(out, { value: 1990, description: "Almoço", type: "output" });
+  assert.deepEqual(out, { value: 1990, description: "Almoço", type: "output", category: "outros" });
 });
 
 test("transaction recusa valor zero, negativo, enorme e tipo desconhecido", () => {
@@ -133,4 +145,71 @@ test("medidor reprova senha acima de 72 bytes, como a API", () => {
   assert.ok(res.checks.some((c) => c.id === "bytes" && !c.ok));
   assert.equal(signupSchema.safeParse({ name: "Maria", email: "m@e.com", password: long }).success, false);
   assert.ok(!evaluatePassword("cavalo-azul-77").checks.some((c) => c.id === "bytes"));
+});
+
+test("categoria precisa combinar com o tipo, e o padrão é outros", () => {
+  const base = { value: "10", description: "Teste" };
+  assert.equal(transactionSchema.parse({ ...base, type: "output" }).category, "outros");
+  assert.equal(transactionSchema.parse({ ...base, type: "output", category: "mercado" }).category, "mercado");
+  assert.equal(transactionSchema.parse({ ...base, type: "input", category: "salario" }).category, "salario");
+  const bad = transactionSchema.safeParse({ ...base, type: "output", category: "salario" });
+  assert.equal(bad.success, false);
+  assert.equal(bad.error.issues[0].path[0], "category");
+  assert.equal(transactionSchema.safeParse({ ...base, type: "input", category: "mercado" }).success, false);
+  for (const category of ["inexistente", "", 7, null, { $ne: 1 }]) {
+    assert.equal(transactionSchema.safeParse({ ...base, type: "output", category }).success, false, JSON.stringify(category));
+  }
+});
+
+test("o formulário e a edição não têm tipo e ignoram campos extras", () => {
+  const out = transactionFormSchema.parse({ value: "1,5", description: "Café", category: "lazer", type: "input", userId: "x" });
+  assert.deepEqual(out, { value: 150, description: "Café", category: "lazer" });
+  // Na edição, sem categoria é erro (o padrão apagaria a categoria que já existia).
+  assert.equal(transactionUpdateSchema.safeParse({ value: "1", description: "Café" }).success, false);
+  assert.equal(transactionUpdateSchema.safeParse({ value: "1", description: "Café", category: undefined }).success, false);
+  assert.equal(transactionUpdateSchema.parse({ value: "1", description: "Café", category: "lazer" }).category, "lazer");
+});
+
+test("categorias: sem repetição dentro do tipo, rótulos e consulta", () => {
+  for (const list of Object.values(CATEGORIES)) {
+    assert.equal(new Set(list.map((c) => c.id)).size, list.length);
+    assert.ok(list.some((c) => c.id === "outros"));
+  }
+  assert.equal(isCategoryOf("output", "mercado"), true);
+  assert.equal(isCategoryOf("input", "mercado"), false);
+  assert.equal(isCategoryOf("transfer", "outros"), false);
+  assert.equal(isCategoryOf("output", undefined), false);
+  assert.equal(categoryLabel("output", "contas"), "Contas e serviços");
+  assert.equal(categoryLabel("output", "nao-existe"), "Outros");
+  assert.ok(ALL_CATEGORY_IDS.includes("salario") && ALL_CATEGORY_IDS.includes("moradia"));
+});
+
+test("mês: formato, limites em Brasília, ida e volta", () => {
+  assert.equal(isMonthKey("2026-10"), true);
+  for (const bad of ["2026-13", "2026-00", "26-10", "2026-1", "1999-12", "2101-01", "2026-10-01", 202610, null, undefined, "abc"]) {
+    assert.equal(isMonthKey(bad), false, String(bad));
+  }
+  const { start, end } = monthRange("2026-10");
+  assert.equal(start.toISOString(), "2026-10-01T03:00:00.000Z");
+  assert.equal(end.toISOString(), "2026-11-01T03:00:00.000Z");
+  assert.equal(monthRange("2026-12").end.toISOString(), "2027-01-01T03:00:00.000Z");
+  assert.equal(monthRange("lixo"), null);
+
+  assert.equal(monthKeyOf("2026-11-01T01:30:00Z"), "2026-10");
+  assert.equal(monthKeyOf("2026-11-01T03:00:00Z"), "2026-11");
+  assert.equal(monthKeyOf(monthRange("2026-03").start), "2026-03");
+  assert.equal(monthKeyOf(new Date(monthRange("2026-03").end.getTime() - 1)), "2026-03");
+
+  assert.equal(shiftMonth("2026-01", -1), "2025-12");
+  assert.equal(shiftMonth("2026-12", 1), "2027-01");
+  assert.equal(shiftMonth("2026-10", 0), "2026-10");
+  assert.equal(shiftMonth("2026-10", -13), "2025-09");
+  assert.equal(monthLabel("2026-03"), "março de 2026");
+});
+
+test("consulta de listagem aceita só month válido", () => {
+  assert.deepEqual(listQuerySchema.parse({}), {});
+  assert.deepEqual(listQuerySchema.parse({ month: "2026-10" }), { month: "2026-10" });
+  assert.equal(listQuerySchema.safeParse({ month: "2026-13" }).success, false);
+  assert.equal(listQuerySchema.safeParse({ month: { $ne: 1 } }).success, false);
 });

@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { TRANSACTION_TYPES } from "@corewallet/shared";
+import { TRANSACTION_TYPES, ALL_CATEGORY_IDS, DEFAULT_CATEGORY } from "@corewallet/shared";
 
 const transactionSchema = new Schema(
   {
@@ -13,6 +13,8 @@ const transactionSchema = new Schema(
       validate: { validator: Number.isInteger, message: "valueCents precisa ser inteiro" },
     },
     description: { type: String, required: true, trim: true },
+    // Lançamentos criados antes das categorias não têm o campo: contam como "outros".
+    category: { type: String, enum: ALL_CATEGORY_IDS, default: DEFAULT_CATEGORY },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

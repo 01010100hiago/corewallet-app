@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import dayjs from "dayjs";
-import { formatCents } from "@corewallet/shared";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { formatCents, isMonthKey, monthKeyOf, monthLabel, shiftMonth } from "@corewallet/shared";
 import { useAuth } from "../context/authContext.js";
 import { api, getErrorMessage } from "../lib/api.js";
 import Icon from "../components/Icon.jsx";
 import { LinkButton } from "../components/Button.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
+import MonthNav from "../components/MonthNav.jsx";
+import SpendingChart from "../components/SpendingChart.jsx";
+import TransactionRow from "../components/TransactionRow.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { dayLabel } from "../lib/days.js";
 
@@ -24,40 +26,79 @@ function groupByDay(transactions) {
 export default function Home() {
   const { user, expire } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const listHeadingRef = useRef(null);
   usePageTitle("Início");
-  const [data, setData] = useState(null); // null = ainda sem resposta da API
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [savedVisible, setSavedVisible] = useState(Boolean(location.state?.saved));
+  const [params, setParams] = useSearchParams();
+  const current = monthKeyOf(new Date());
+  // O mês fica na URL (?mes=2026-10): dá para voltar, recarregar e compartilhar.
+  const requested = params.get("mes");
+  const month = isMonthKey(requested) && requested <= current ? requested : current;
+  const [result, setResult] = useState(null); // { month, data } | { month, error }
+  const [reload, setReload] = useState(0);
+  const [notice, setNotice] = useState(location.state?.notice ?? "");
+
+  // O aviso veio pelo estado da navegação, que sobrevive a F5 e ao botão voltar.
+  // Depois de lido, limpa o estado para ele não reaparecer sem ação nova.
+  useEffect(() => {
+    if (location.state?.notice) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location, navigate]);
 
   useEffect(() => {
     let cancelled = false;
     api
-      .get("/transactions")
-      .then((res) => !cancelled && setData(res.data))
+      .get("/transactions", { params: { month } })
+      .then((res) => !cancelled && setResult({ month, data: res.data }))
       .catch((err) => {
         if (cancelled) return;
         if (err.response?.status === 401) expire();
-        else setError(getErrorMessage(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        else setResult({ month, error: getErrorMessage(err) });
       });
     return () => {
       cancelled = true;
     };
-  }, [expire]);
+  }, [month, reload, expire]);
 
+  const changeMonth = useCallback(
+    (next) => {
+      setNotice("");
+      setParams(next === current ? {} : { mes: next }, { replace: false });
+    },
+    [current, setParams]
+  );
+
+  async function deleteTransaction(t) {
+    try {
+      await api.delete(`/transactions/${t.id}`);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        expire();
+        return;
+      }
+      // 404: já tinha sido excluído (outra aba); a lista só estava velha.
+      if (err.response?.status !== 404) throw new Error(getErrorMessage(err), { cause: err });
+    }
+    setNotice("Lançamento excluído.");
+    setReload((n) => n + 1);
+    // A linha excluída sai da tela com o foco dentro dela: leva o foco para o título da lista.
+    listHeadingRef.current?.focus();
+  }
+
+  const ready = result?.month === month;
+  const loading = !ready;
+  const error = ready ? (result.error ?? "") : "";
+  const data = ready ? (result.data ?? null) : null;
   const balance = data?.balance ?? null;
   const transactions = data?.transactions ?? [];
+  const summary = data?.month ?? null;
 
   return (
     <div className="flex flex-col gap-5">
-      {savedVisible && (
+      {notice && (
         <p role="status" className="flex items-center gap-2 rounded-2xl bg-mint-100 p-3.5 text-sm text-pine-900">
           <Icon name="ok" className="size-5 shrink-0" />
-          <span className="flex-1">Lançamento salvo.</span>
-          <button type="button" onClick={() => setSavedVisible(false)} className="rounded-lg px-2 py-1 font-medium underline underline-offset-4 hover:bg-white/60">
+          <span className="flex-1">{notice}</span>
+          <button type="button" onClick={() => setNotice("")} className="rounded-lg px-2 py-1 font-medium underline underline-offset-4 hover:bg-white/60">
             Fechar
           </button>
         </p>
@@ -74,8 +115,8 @@ export default function Home() {
         </p>
 
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Entradas" value={data?.totalIn} icon="entrada" />
-          <Stat label="Saídas" value={data?.totalOut} icon="saida" />
+          <Stat label="Total de entradas" value={data?.totalIn} icon="entrada" />
+          <Stat label="Total de saídas" value={data?.totalOut} icon="saida" />
         </dl>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -90,16 +131,30 @@ export default function Home() {
 
       <ErrorMessage>{error}</ErrorMessage>
 
+      <section aria-label="Mês" className="rounded-3xl border border-line bg-white p-4 shadow-sm sm:p-5">
+        <MonthNav month={month} current={current} previous={shiftMonth(month, -1)} next={shiftMonth(month, 1)} onChange={changeMonth} />
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <MonthStat label="Entradas do mês" value={summary?.totalIn} className="text-positive" />
+          <MonthStat label="Saídas do mês" value={summary?.totalOut} className="text-negative" />
+        </dl>
+      </section>
+
+      {summary && <SpendingChart categories={summary.categories} />}
+
       <section aria-label="Lançamentos" className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-lg font-semibold text-pine-900">Lançamentos</h2>
-          {!loading && transactions.length > 0 && <span className="text-sm text-muted">{transactions.length} recentes</span>}
+          <h2 ref={listHeadingRef} tabIndex={-1} className="text-lg font-semibold text-pine-900">
+            Lançamentos
+          </h2>
+          {!loading && transactions.length > 0 && (
+            <span className="text-sm text-muted">{data?.truncated && summary ? `${transactions.length} de ${summary.count}` : `${transactions.length} no mês`}</span>
+          )}
         </div>
 
         {loading ? (
           <Skeleton />
         ) : transactions.length === 0 ? (
-          !error && <EmptyState />
+          !error && <EmptyState month={month} summary={Boolean(summary)} />
         ) : (
           <>
             {groupByDay(transactions).map((group) => (
@@ -107,14 +162,14 @@ export default function Home() {
                 <h3 className="bg-canvas px-5 py-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.label}</h3>
                 <ul className="divide-y divide-line">
                   {group.items.map((t) => (
-                    <TransactionRow key={t.id} transaction={t} />
+                    <TransactionRow key={t.id} transaction={t} onDelete={deleteTransaction} />
                   ))}
                 </ul>
               </div>
             ))}
             {data.truncated && (
               <p className="border-t border-line px-5 py-3 text-sm text-muted">
-                Mostrando os {transactions.length} lançamentos mais recentes. O saldo considera todos.
+                Mostrando os {transactions.length} lançamentos mais recentes do mês. O saldo e os totais consideram todos.
               </p>
             )}
           </>
@@ -153,35 +208,23 @@ function Skeleton() {
   );
 }
 
-function TransactionRow({ transaction: t }) {
-  const input = t.type === "input";
+function MonthStat({ label, value, className }) {
   return (
-    <li className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-canvas/60">
-      <span className={`grid size-10 shrink-0 place-items-center rounded-full ${input ? "bg-mint-100 text-pine-900" : "bg-coral-100 text-coral-800"}`}>
-        <Icon name={input ? "entrada" : "saida"} className="size-6" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-medium [overflow-wrap:anywhere]">{t.description}</span>
-        <time dateTime={t.createdAt} className="text-sm text-muted">
-          {dayjs(t.createdAt).format("HH:mm")}
-        </time>
-      </span>
-      <span className={`tabular shrink-0 font-semibold ${input ? "text-positive" : "text-negative"}`}>
-        {!input && "− "}
-        {formatCents(t.value)}
-      </span>
-    </li>
+    <div className="rounded-2xl bg-canvas px-4 py-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className={`tabular font-semibold ${className}`}>{typeof value === "number" ? formatCents(value) : "—"}</dd>
+    </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ month, summary }) {
   return (
     <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
       <span className="grid size-16 place-items-center rounded-full bg-mint-100 text-pine-900">
         <Icon name="carteira" className="size-9" />
       </span>
-      <p className="font-medium">Ainda não há entradas nem saídas</p>
-      <p className="max-w-xs text-sm text-muted">Registre a primeira para acompanhar o seu saldo.</p>
+      <p className="font-medium">{summary ? `Nenhum lançamento em ${monthLabel(month)}` : "Ainda não há entradas nem saídas"}</p>
+      <p className="max-w-xs text-sm text-muted">Registre um para acompanhar o seu saldo.</p>
     </div>
   );
 }

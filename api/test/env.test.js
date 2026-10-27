@@ -2,7 +2,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadEnv } from "../src/config/env.js";
 
-const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY"];
+const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY", "RATE_LIMITS"];
 
 describe("loadEnv", () => {
   let saved;
@@ -70,6 +70,16 @@ describe("loadEnv", () => {
       assert.throws(() => loadEnv(), /chave de teste/);
       delete process.env.NODE_ENV;
     }
+  });
+
+  test("RATE_LIMITS=off só fora de produção; sem ele o limite fica ligado", () => {
+    assert.equal(loadEnv().rateLimits, undefined);
+    process.env.RATE_LIMITS = "ligado";
+    assert.equal(loadEnv().rateLimits, undefined, "qualquer valor diferente de off não desliga");
+    process.env.RATE_LIMITS = "off";
+    assert.equal(loadEnv().rateLimits, false);
+    process.env.NODE_ENV = "production";
+    assert.throws(() => loadEnv(), /RATE_LIMITS=off não pode ser usado em produção/);
   });
 
   test("Google: o ID do cliente é opcional; confiança no proxy é número", () => {

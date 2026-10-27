@@ -385,8 +385,8 @@ describe("Home refinada", () => {
     expect(await screen.findByText("Mercado")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hoje", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ontem", level: 3 })).toBeInTheDocument();
-    expect(screen.getByText("Entradas").closest("div")).toHaveTextContent("100,00");
-    expect(screen.getByText("Saídas").closest("div")).toHaveTextContent("30,00");
+    expect(screen.getByText("Total de entradas").closest("div")).toHaveTextContent("100,00");
+    expect(screen.getByText("Total de saídas").closest("div")).toHaveTextContent("30,00");
   });
 
   test("enquanto carrega mostra o esqueleto, e o saldo fica em traço", () => {
@@ -398,7 +398,7 @@ describe("Home refinada", () => {
 
   test("avisa que o lançamento foi salvo e o aviso pode ser fechado", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: { balance: 0, totalIn: 0, totalOut: 0, truncated: false, transactions: [] } });
-    renderPage(<Home />, { route: { pathname: "/", state: { saved: true } } });
+    renderPage(<Home />, { route: { pathname: "/", state: { notice: "Lançamento salvo." } } });
     expect(await screen.findByText("Lançamento salvo.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByText("Lançamento salvo.")).not.toBeInTheDocument();

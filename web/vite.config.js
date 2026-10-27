@@ -11,6 +11,12 @@ export default defineConfig({
       "/api": "http://localhost:4000",
     },
   },
+  // O preview (usado nos testes de ponta a ponta) encaminha /api como o nginx faz.
+  preview: {
+    proxy: {
+      "/api": "http://localhost:4000",
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.js"],
