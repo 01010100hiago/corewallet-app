@@ -48,7 +48,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     test("cria o usuário, guarda só o hash e não devolve a senha", async () => {
       const res = await request(app).post("/api/auth/signup").send(user());
       assert.equal(res.status, 201);
-      assert.deepEqual(Object.keys(res.body).sort(), ["createdAt", "email", "id", "name", "profileComplete", "provider"]);
+      assert.deepEqual(Object.keys(res.body).sort(), ["createdAt", "email", "emailVerified", "id", "name", "profileComplete", "provider", "twoFactorEnabled"]);
       assert.equal(res.body.provider, "password");
       assert.equal(res.body.profileComplete, true);
 

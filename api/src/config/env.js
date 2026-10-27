@@ -63,7 +63,26 @@ export function loadEnv() {
     throw new Error("RATE_LIMITS=off não pode ser usado em produção");
   }
 
+  // Envio de email (confirmação de cadastro). SMTP_URL e MAIL_FROM juntos ligam o envio; a
+  // confirmação de email só passa a ser exigida nesse caso (EMAIL_VERIFICATION=off a desliga).
+  // MAIL_OUTBOX_FILE grava os emails num arquivo em vez de enviar: só para desenvolver e testar.
+  const smtpUrl = process.env.SMTP_URL || "";
+  const mailFrom = process.env.MAIL_FROM || "";
+  const outboxFile = process.env.MAIL_OUTBOX_FILE || "";
+  if (smtpUrl && !mailFrom) throw new Error("Defina MAIL_FROM junto com SMTP_URL (ex.: CoreWallet <nao-responda@seudominio.com>)");
+  if (outboxFile && production) throw new Error("MAIL_OUTBOX_FILE não pode ser usado em produção (os emails não seriam enviados)");
+  const mail = outboxFile ? { transport: "file", file: outboxFile } : smtpUrl ? { transport: "smtp", url: smtpUrl, from: mailFrom } : null;
+  const emailVerificationRequired = Boolean(mail) && process.env.EMAIL_VERIFICATION !== "off";
+
+  // Chave só do 2FA (opcional). Sem ela, usa uma derivada do JWT_SECRET, e trocar o JWT_SECRET
+  // invalidaria os segredos já guardados. Defina antes de haver gente com 2FA ativo.
+  const totpKey = process.env.TOTP_ENCRYPTION_KEY || "";
+  if (totpKey && totpKey.length < JWT_SECRET_MIN) throw new Error(`TOTP_ENCRYPTION_KEY precisa ter pelo menos ${JWT_SECRET_MIN} caracteres`);
+
   return {
+    totpEncryptionKey: totpKey || null,
+    mail,
+    emailVerificationRequired,
     rateLimits: rateLimitsOff ? false : undefined,
     port: Number(process.env.PORT) || 4000,
     // Quantos proxies confiáveis (o nginx) ficam na frente. 0 = nenhum.

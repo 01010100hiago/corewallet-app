@@ -16,6 +16,7 @@ import ErrorMessage from "../components/ErrorMessage.jsx";
 import ProtectionDetails from "../components/ProtectionDetails.jsx";
 import GoogleSection from "../components/GoogleSection.jsx";
 import Captcha from "../components/Captcha.jsx";
+import ResendEmail from "../components/ResendEmail.jsx";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -25,6 +26,7 @@ export default function Signup() {
   const [apiError, setApiError] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaReset, setCaptchaReset] = useState(0);
+  const [sentTo, setSentTo] = useState(null); // { email, sent } quando a confirmação de email é exigida
   const {
     register,
     handleSubmit,
@@ -43,13 +45,45 @@ export default function Signup() {
       return;
     }
     try {
-      await signup(captcha ? { name, email, password: pass, captchaToken } : { name, email, password: pass });
+      const created = await signup(captcha ? { name, email, password: pass, captchaToken } : { name, email, password: pass });
+      if (created?.verificationRequired) {
+        setSentTo({ email, sent: created.verificationSent });
+        return;
+      }
       navigate("/signin", { state: { registered: true } });
     } catch (error) {
       setApiError(getErrorMessage(error));
       // O token do captcha vale uma vez só: depois de enviar, precisa de um novo.
       if (captcha) setCaptchaReset((n) => n + 1);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight text-pine-900">Confirme seu email</h1>
+        <p role="status" className="mt-5 flex items-start gap-2 rounded-md bg-mint-100 p-3.5 text-pine-900">
+          <Icon name="email" className="mt-0.5 size-5 shrink-0" />
+          <span>
+            {sentTo.sent ? (
+              <>
+                Conta criada! Enviamos um link para <strong className="[overflow-wrap:anywhere]">{sentTo.email}</strong>. Abra o email e toque no link para ativar a conta. Ele vale por 24 horas.
+              </>
+            ) : (
+              <>Conta criada, mas não conseguimos enviar o email agora. Use o botão abaixo para pedir o link de novo.</>
+            )}
+          </span>
+        </p>
+        <p className="mt-3 text-sm text-muted">Não achou? Olhe também a caixa de spam.</p>
+        <ResendEmail email={sentTo.email} />
+        <p className="mt-6 text-center text-muted">
+          Já confirmou?{" "}
+          <Link to="/signin" className="font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
+            Entrar
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (

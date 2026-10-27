@@ -12,6 +12,7 @@ export const fakeAuth = (overrides = {}) => ({
   now: () => Date.now(),
   retry: () => {},
   signin: async () => {},
+  signinTwoFactor: async () => {},
   googleSignin: async () => {},
   updateProfile: async () => {},
   signup: async () => {},

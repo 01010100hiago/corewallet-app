@@ -2,7 +2,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadEnv } from "../src/config/env.js";
 
-const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY", "RATE_LIMITS", "CAPTCHA_POW", "POW_MAX_NUMBER"];
+const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY", "RATE_LIMITS", "CAPTCHA_POW", "POW_MAX_NUMBER", "SMTP_URL", "MAIL_FROM", "MAIL_OUTBOX_FILE", "EMAIL_VERIFICATION"];
 
 describe("loadEnv", () => {
   let saved;
@@ -118,5 +118,43 @@ describe("loadEnv", () => {
     assert.equal(loadEnv().trustProxy, 1);
     process.env.TRUST_PROXY = "lixo";
     assert.equal(loadEnv().trustProxy, 0);
+  });
+
+  describe("email", () => {
+    test("sem configuração: nada é enviado e a confirmação não é exigida", () => {
+      const env = loadEnv();
+      assert.equal(env.mail, null);
+      assert.equal(env.emailVerificationRequired, false);
+    });
+
+    test("SMTP_URL com MAIL_FROM liga o envio e a confirmação", () => {
+      process.env.SMTP_URL = "smtps://usuario:senha@smtp.exemplo.com:465";
+      process.env.MAIL_FROM = "CoreWallet <nao-responda@exemplo.com>";
+      const env = loadEnv();
+      assert.deepEqual(env.mail, { transport: "smtp", url: process.env.SMTP_URL, from: process.env.MAIL_FROM });
+      assert.equal(env.emailVerificationRequired, true);
+    });
+
+    test("EMAIL_VERIFICATION=off envia mas não exige a confirmação", () => {
+      process.env.SMTP_URL = "smtps://u:s@smtp.exemplo.com:465";
+      process.env.MAIL_FROM = "x@exemplo.com";
+      process.env.EMAIL_VERIFICATION = "off";
+      assert.equal(loadEnv().emailVerificationRequired, false);
+    });
+
+    test("SMTP_URL sem MAIL_FROM é recusado", () => {
+      process.env.SMTP_URL = "smtps://u:s@smtp.exemplo.com:465";
+      assert.throws(() => loadEnv(), /MAIL_FROM/);
+    });
+
+    test("o arquivo de emails (só para desenvolver) liga a confirmação, mas é recusado em produção", () => {
+      process.env.MAIL_OUTBOX_FILE = "/tmp/emails.jsonl";
+      const env = loadEnv();
+      assert.deepEqual(env.mail, { transport: "file", file: "/tmp/emails.jsonl" });
+      assert.equal(env.emailVerificationRequired, true);
+      process.env.NODE_ENV = "production";
+      process.env.COOKIE_SECURE = "true";
+      assert.throws(() => loadEnv(), /MAIL_OUTBOX_FILE/);
+    });
   });
 });

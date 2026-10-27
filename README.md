@@ -27,6 +27,8 @@ Carteira de receitas e despesas, inspirada no projeto do curso de React da [DIO]
 - **Categorias suas:** página própria para criar, renomear e apagar categorias de receita e de despesa. Ao apagar uma que tem lançamentos, você escolhe para onde eles vão; cada mudança fica registrada no histórico do lançamento.
 - **Extrato:** todos os lançamentos (na lista, arquivados e excluídos) com busca pela descrição, filtros por tipo, categoria, situação e datas, totais do filtro inteiro e "Carregar mais".
 - **Histórico de alterações:** tudo o que é criado, editado, arquivado, excluído ou restaurado fica registrado. O que foi **excluído** sai da lista e do saldo, mas pode ser restaurado; o que foi **arquivado** sai da lista, mas continua contando no saldo, e pode ser desarquivado.
+- **Verificação em duas etapas (opcional):** na Conta, a pessoa ativa com o Google Authenticator, Authy, 1Password ou similar (QR code + chave), recebe 10 códigos de recuperação (mostrados uma vez, guardados só em hash) e, a partir daí, o login pede o código de 6 dígitos depois da senha. Ativar pede a senha e desconecta as outras sessões. O segredo fica cifrado no banco (chave própria opcional, `TOTP_ENCRYPTION_KEY`), cada código só vale uma vez, o desafio da segunda etapa morre depois de 5 erros e 10 erros seguidos travam a conta por 15 minutos.
+- **Confirmação de email (quando há SMTP configurado):** o cadastro por senha envia um link de uso único (24 h) e o login só abre depois de confirmar. Quem cadastra um email já "reservado" por outra pessoa (conta nunca confirmada, sem acesso) assume a conta, então ninguém bloqueia o email dos outros. Sem SMTP, nada muda. Veja `docs/DEPLOY.md`.
 - **Entrar:** email e senha ou conta Google, sem junção automática de contas. Cadastro e login passam por uma verificação anti-robô: a automática do próprio CoreWallet (sem chave nenhuma) ou o captcha da Cloudflare, se as chaves estiverem configuradas.
 - **Sessão segura:** acesso de 15 minutos renovado sozinho, dispositivos conectados que dá para encerrar, proteção CSRF e limite de tentativas.
 - **Transparência:** o selo "Sessão protegida" e a tela "Minha conta" mostram só o que o código faz de verdade.
@@ -149,6 +151,9 @@ As imagens deste README são geradas por `E2E_SCREENSHOTS=1 npm run test:e2e -- 
 | `GET /api/categories/usage` | Quantos lançamentos usam cada categoria |
 | `PATCH /api/categories/:id` | Renomeia (os lançamentos acompanham, pois guardam o id) |
 | `DELETE /api/categories/:id?moveTo=` | Apaga; se houver lançamentos, `moveTo` diz para qual categoria do mesmo tipo eles vão |
+| `POST /api/auth/signin/2fa` | Segunda etapa do login: o desafio recebido depois da senha e o código (do aplicativo ou de recuperação) |
+| `GET /api/auth/2fa` · `POST /api/auth/2fa/setup` · `/enable` · `/disable` | Estado, começar a ativação (segredo + QR code), confirmar com o primeiro código (devolve os códigos de recuperação) e desativar (senha + código) |
+| `POST /api/auth/email/verify` · `/email/resend` | Confirmar o email pelo link e pedir um novo link (a resposta é sempre a mesma, exista a conta ou não) |
 | `GET /api/auth/challenge` | Desafio da verificação automática (só existe quando ela está ligada) |
 
 ## Melhorias em relação ao curso

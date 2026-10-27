@@ -98,6 +98,36 @@ TURNSTILE_SECRET_KEY=...
 # MONGO_PORT=27117
 ```
 
+### Confirmação de email (opcional)
+
+Sem configuração, o cadastro não envia email e não exige confirmação. Para ligar, você precisa de um
+**provedor de SMTP** (montar um servidor de email próprio não vale a pena: os grandes provedores
+bloqueiam como spam o que vem de IP residencial). Opções com plano gratuito: Brevo, Resend, ou o Gmail
+com uma *senha de app*. Crie a conta no provedor, verifique o domínio ou o remetente lá e ponha no `.env`:
+
+```ini
+SMTP_URL=smtps://usuario:senha@smtp.seuprovedor.com:465
+MAIL_FROM=CoreWallet <nao-responda@seudominio.com>
+```
+
+- Com os dois preenchidos, o cadastro por senha passa a enviar um link (vale 24 horas, uso único) e o
+  login só abre depois da confirmação. `EMAIL_VERIFICATION=off` envia mas não exige.
+- **Contas que já existem** ficam como "não confirmadas" e deixariam de conseguir entrar. Antes de ligar,
+  marque-as: `docker compose exec mongo mongosh -u USUARIO -p SENHA --authenticationDatabase admin corewallet --eval 'db.users.updateMany({provider:"password"},{$set:{emailVerified:true}})'`
+- A senha do SMTP é segredo: fica só no `.env` do servidor (permissão 600), nunca no repositório.
+
+### Verificação em duas etapas
+
+Não precisa de serviço externo: o aplicativo autenticador do celular e a API calculam o código com a
+mesma conta (RFC 6238) e o mesmo segredo. O segredo fica cifrado no banco (AES-256-GCM).
+
+- Defina `TOTP_ENCRYPTION_KEY` (32+ caracteres, `openssl rand -hex 32`) **antes** de alguém ativar o 2FA.
+  Sem ela, a chave é derivada do `JWT_SECRET`, e trocar o `JWT_SECRET` invalidaria os 2FA já ativados
+  (quem os tem passaria a depender dos códigos de recuperação). Com a chave própria, os dois ficam independentes.
+- **Perder a `TOTP_ENCRYPTION_KEY` tem o mesmo efeito:** guarde-a no cofre de senhas.
+- Dez erros seguidos no código travam a conta por 15 minutos (de qualquer IP); ativar o 2FA pede a senha
+  e desconecta as outras sessões.
+
 Remova do `.env` qualquer chave de teste da Cloudflare (`1x000…`, `2x000…`, `3x000…`): em produção a
 API não sobe com elas.
 

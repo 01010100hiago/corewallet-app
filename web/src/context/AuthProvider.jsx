@@ -119,6 +119,17 @@ export function AuthProvider({ children }) {
   const signin = useCallback(
     async (credentials) => {
       const res = await api.post("/auth/signin", credentials);
+      // Com a verificação em duas etapas a senha só rende um desafio: a sessão vem na 2ª etapa.
+      if (res.data.twoFactorRequired) return { twoFactorRequired: true, challenge: res.data.challenge };
+      apply(res.data);
+      return null;
+    },
+    [apply]
+  );
+
+  const signinTwoFactor = useCallback(
+    async (challenge, code) => {
+      const res = await api.post("/auth/signin/2fa", { challenge, code });
       apply(res.data);
     },
     [apply]
@@ -141,9 +152,8 @@ export function AuthProvider({ children }) {
     [apply]
   );
 
-  const signup = useCallback(async (data) => {
-    await api.post("/auth/signup", data);
-  }, []);
+  // Devolve a resposta: com a confirmação de email ligada ela diz se o link foi enviado.
+  const signup = useCallback(async (data) => (await api.post("/auth/signup", data)).data, []);
 
   // Só dá a pessoa como deslogada se o servidor confirmou: se a chamada falhar, o
   // cookie continua valendo e a tela não pode afirmar o contrário.
@@ -169,8 +179,8 @@ export function AuthProvider({ children }) {
   const expire = useCallback(() => clear("expired"), [clear]);
 
   const value = useMemo(
-    () => ({ user, session, status, notice, now, retry, signin, googleSignin, updateProfile, signup, logout, logoutAll, expire }),
-    [user, session, status, notice, now, retry, signin, googleSignin, updateProfile, signup, logout, logoutAll, expire]
+    () => ({ user, session, status, notice, now, retry, signin, signinTwoFactor, googleSignin, updateProfile, signup, logout, logoutAll, expire }),
+    [user, session, status, notice, now, retry, signin, signinTwoFactor, googleSignin, updateProfile, signup, logout, logoutAll, expire]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

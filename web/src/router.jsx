@@ -13,6 +13,7 @@ import Account from "./pages/Account.jsx";
 import History from "./pages/History.jsx";
 import Analysis from "./pages/Analysis.jsx";
 import Categories from "./pages/Categories.jsx";
+import VerifyEmail from "./pages/VerifyEmail.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 
 export const routes = [
@@ -52,6 +53,11 @@ export const routes = [
             ],
           },
         ],
+      },
+      {
+        // O link do email abre com ou sem sessão.
+        element: <AuthShell />,
+        children: [{ path: "/verify-email", element: <VerifyEmail /> }],
       },
       { path: "*", element: <ErrorPage notFound /> },
     ],

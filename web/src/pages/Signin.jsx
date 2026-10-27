@@ -14,6 +14,8 @@ import ErrorMessage from "../components/ErrorMessage.jsx";
 import ProtectionDetails from "../components/ProtectionDetails.jsx";
 import GoogleSection from "../components/GoogleSection.jsx";
 import Captcha from "../components/Captcha.jsx";
+import TwoFactorStep from "../components/TwoFactorStep.jsx";
+import ResendEmail from "../components/ResendEmail.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 
 export default function Signin() {
@@ -25,6 +27,8 @@ export default function Signin() {
   const [apiError, setApiError] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaReset, setCaptchaReset] = useState(0);
+  const [challenge, setChallenge] = useState(null); // 2ª etapa (verificação em duas etapas)
+  const [unverified, setUnverified] = useState(""); // email que ainda não foi confirmado
   const {
     register,
     handleSubmit,
@@ -36,15 +40,21 @@ export default function Signin() {
 
   async function onSubmit(data) {
     setApiError("");
+    setUnverified("");
     if (captcha && !captchaToken) {
       setApiError(captcha.provider === "pow" ? "A verificação de segurança ainda não terminou. Aguarde alguns segundos ou use “Tentar de novo”, se ele aparecer." : "Confirme que você não é um robô.");
       return;
     }
     try {
-      await signin(captcha ? { ...data, captchaToken } : data);
+      const result = await signin(captcha ? { ...data, captchaToken } : data);
+      if (result?.twoFactorRequired) {
+        setChallenge(result.challenge);
+        return;
+      }
       navigate("/", { replace: true });
     } catch (error) {
       setApiError(getErrorMessage(error));
+      if (error.response?.data?.code === "email_not_verified") setUnverified(data.email);
       // O token do captcha vale uma vez só: depois de enviar, precisa de um novo.
       if (captcha) setCaptchaReset((n) => n + 1);
     }
@@ -52,8 +62,8 @@ export default function Signin() {
 
   return (
     <div>
-      <h1 className="text-3xl font-semibold tracking-tight text-pine-900">Que bom te ver</h1>
-      <p className="mt-1 text-muted">Entre para ver seu saldo.</p>
+      <h1 className="text-3xl font-semibold tracking-tight text-pine-900">{challenge ? "Verificação em duas etapas" : "Que bom te ver"}</h1>
+      <p className="mt-1 text-muted">{challenge ? "Falta só mais uma confirmação." : "Entre para ver seu saldo."}</p>
 
       {location.state?.registered && (
         <p role="status" className="mt-5 flex items-center gap-2 rounded-md bg-mint-100 p-3 text-sm text-pine-900">
@@ -70,9 +80,26 @@ export default function Signin() {
       {apiError && (
         <div className="mt-5">
           <ErrorMessage>{apiError}</ErrorMessage>
+          {unverified && <ResendEmail email={unverified} />}
         </div>
       )}
 
+      {challenge ? (
+        <TwoFactorStep
+          challenge={challenge}
+          onDone={() => navigate("/", { replace: true })}
+          onBack={() => {
+            setChallenge(null);
+            setApiError("");
+            if (captcha) setCaptchaReset((n) => n + 1);
+          }}
+          onExpired={(message) => {
+            setChallenge(null);
+            setApiError(message);
+            if (captcha) setCaptchaReset((n) => n + 1);
+          }}
+        />
+      ) : (
       <div className="mt-6 flex flex-col gap-4">
         <GoogleSection onError={setApiError} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
@@ -93,13 +120,16 @@ export default function Signin() {
           </Button>
         </form>
       </div>
+      )}
 
+      {!challenge && (
       <p className="mt-6 text-center text-muted">
         Novo por aqui?{" "}
         <Link to="/signup" className="font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
           Criar conta grátis
         </Link>
       </p>
+      )}
 
       <ProtectionDetails />
     </div>

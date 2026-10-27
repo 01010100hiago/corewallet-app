@@ -69,4 +69,7 @@ export async function revokeOne(sessionId, userId) {
   return res.deletedCount === 1;
 }
 
+// Encerra todas as sessões menos a atual (ex.: depois de ativar o 2FA).
+export const revokeOthers = (userId, keepSessionId) => RefreshSession.deleteMany({ userId, _id: { $ne: keepSessionId } });
+
 export const revokeAll = (userId) => RefreshSession.deleteMany({ userId });

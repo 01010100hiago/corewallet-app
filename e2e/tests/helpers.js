@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { confirmationLink } from "./mail.js";
 
 export const PASSWORD = "cavalo-azul-77";
 
@@ -17,7 +18,11 @@ export async function signUp(page, user) {
   await page.getByLabel("Confirme a senha").fill(user.password);
   await expect(page.getByText(/Verificado: você é uma pessoa/)).toBeVisible();
   await page.getByRole("button", { name: "Criar conta" }).click();
-  await expect(page).toHaveURL(/\/signin$/);
+  // A confirmação de email é exigida: abre o link que a API "enviou" (está no arquivo de emails).
+  await expect(page.getByRole("heading", { name: "Confirme seu email" })).toBeVisible();
+  await page.goto(await confirmationLink(user.email));
+  await expect(page.getByText(/Email confirmado/)).toBeVisible();
+  await page.goto("/signin");
 }
 
 export async function signIn(page, user) {

@@ -13,6 +13,9 @@ export const DEFAULT_LIMITS = {
   google: { windowMs: 15 * MIN, limit: 30 },
   refresh: { windowMs: 15 * MIN, limit: 60 },
   challenge: { windowMs: 15 * MIN, limit: 60 },
+  twoFactor: { windowMs: 15 * MIN, limit: 20 },
+  email: { windowMs: 15 * MIN, limit: 20 },
+  emailTarget: { windowMs: 60 * MIN, limit: 5 },
 };
 
 const passthrough = (req, res, next) => next();
@@ -32,7 +35,7 @@ function make(options, extra = {}) {
 // limits === false desliga tudo (usado só nos testes).
 export function createLimiters(limits = DEFAULT_LIMITS) {
   if (limits === false) {
-    return Object.fromEntries(["general", "signup", "signin", "signinAccount", "google", "refresh", "challenge"].map((k) => [k, passthrough]));
+    return Object.fromEntries(["general", "signup", "signin", "signinAccount", "google", "refresh", "challenge", "twoFactor", "email", "emailTarget"].map((k) => [k, passthrough]));
   }
   const l = { ...DEFAULT_LIMITS, ...limits };
   const emailKey = (req) => `${ipKeyGenerator(req.ip)}|${String(req.body?.email ?? "").toLowerCase().slice(0, 254)}`;
@@ -46,5 +49,10 @@ export function createLimiters(limits = DEFAULT_LIMITS) {
     google: make(l.google),
     refresh: make(l.refresh),
     challenge: make(l.challenge),
+    // Segunda etapa e ativação/desativação do 2FA: só os erros contam.
+    twoFactor: make(l.twoFactor, { skipSuccessfulRequests: true }),
+    email: make(l.email),
+    // Pedidos de reenvio para o MESMO email, de qualquer IP: não dá para encher a caixa de alguém.
+    emailTarget: make(l.emailTarget, { keyGenerator: (req) => `target|${String(req.body?.email ?? "").toLowerCase().slice(0, 254)}` }),
   };
 }

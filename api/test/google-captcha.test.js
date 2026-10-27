@@ -137,12 +137,12 @@ describe("captcha e Google nas rotas", { skip: !uri && "defina TEST_DATABASE_URI
   describe("GET /api/auth/config", () => {
     test("devolve só chaves públicas quando tudo está ligado", async () => {
       const res = await request(app).get("/api/auth/config").expect(200);
-      assert.deepEqual(res.body, { captcha: { provider: "turnstile", siteKey: "site-key-publica" }, google: { clientId: CLIENT_ID } });
+      assert.deepEqual(res.body, { captcha: { provider: "turnstile", siteKey: "site-key-publica" }, google: { clientId: CLIENT_ID }, emailVerification: false });
       assert.ok(!JSON.stringify(res.body).includes('"s"'));
     });
     test("tudo nulo quando nada está configurado", async () => {
       const res = await request(appOff).get("/api/auth/config").expect(200);
-      assert.deepEqual(res.body, { captcha: null, google: null });
+      assert.deepEqual(res.body, { captcha: null, google: null, emailVerification: false });
     });
   });
 

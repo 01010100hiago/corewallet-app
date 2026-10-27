@@ -4,6 +4,7 @@ import DataWeKeep from "../components/DataWeKeep.jsx";
 import Devices from "../components/Devices.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import Icon from "../components/Icon.jsx";
+import TwoFactorSettings from "../components/TwoFactorSettings.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { inBrasilia } from "../lib/brasilia.js";
 
@@ -49,6 +50,8 @@ export default function Account() {
         </span>
         <Icon name="voltar" className="size-5 shrink-0 rotate-180 text-pine-700 transition duration-300 group-hover:translate-x-1" />
       </Link>
+
+      <TwoFactorSettings />
 
       <Devices />
 

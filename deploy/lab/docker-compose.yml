@@ -43,6 +43,12 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/DEPLOY.md.
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-}
+      # Chave só do 2FA (opcional, 32+ caracteres). Sem ela, deriva do JWT_SECRET.
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
     depends_on:
       mongo:
         condition: service_healthy

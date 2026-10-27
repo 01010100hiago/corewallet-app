@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 import * as authService from "../services/authService.js";
+import { AuthError } from "../services/authService.js";
 import * as sessions from "../services/sessionService.js";
 import User from "../models/User.js";
 import { signAccessToken, accessExpiry, verifyAccessToken, ACCESS_TTL_SECONDS } from "../services/tokenService.js";
@@ -39,10 +40,12 @@ const publicUser = (user) => ({
   email: user.email,
   provider: user.provider,
   profileComplete: user.profileComplete,
+  emailVerified: Boolean(user.emailVerified),
+  twoFactorEnabled: Boolean(user.totpEnabled),
   createdAt: user.createdAt,
 });
 
-export function createAuthController({ env, captcha, google }) {
+export function createAuthController({ env, captcha, google, emailVerification, twoFactor }) {
   const baseCookie = { httpOnly: true, secure: env.cookieSecure, sameSite: "lax" };
   const sessionCookie = { ...baseCookie, path: "/api" };
   const refreshCookie = { ...baseCookie, sameSite: "strict", path: "/api/auth" };
@@ -84,6 +87,7 @@ export function createAuthController({ env, captcha, google }) {
             ? { provider: "pow" }
             : { provider: "turnstile", siteKey: env.turnstile.siteKey },
         google: google.enabled ? { clientId: env.googleClientId } : null,
+        emailVerification: Boolean(env.emailVerificationRequired),
       });
     },
 
@@ -94,12 +98,68 @@ export function createAuthController({ env, captcha, google }) {
     },
 
     async signup(req, res) {
-      const user = await authService.signup(req.body);
-      res.status(201).json(publicUser(user));
+      const user = await authService.signup(req.body, { takeoverUnverified: Boolean(env.emailVerificationRequired) });
+      if (!env.emailVerificationRequired) return res.status(201).json(publicUser(user));
+      // Falha no envio não desfaz o cadastro: a tela oferece reenviar.
+      const verificationSent = await emailVerification.issue(user);
+      res.status(201).json({ ...publicUser(user), verificationRequired: true, verificationSent });
     },
 
     async signin(req, res) {
-      await startSession(req, res, await authService.signin(req.body));
+      const user = await authService.signin(req.body);
+      // Só quem acertou a senha descobre que falta confirmar o email (não revela se o email existe).
+      if (env.emailVerificationRequired && user.provider === "password" && !user.emailVerified) {
+        throw new AuthError("Confirme seu email para entrar. Use o link que enviamos no cadastro ou peça um novo.", 403, "email_not_verified");
+      }
+      // Com a verificação em duas etapas, a senha sozinha não abre a sessão: devolve um desafio curto.
+      if (user.totpEnabled) return res.json({ twoFactorRequired: true, challenge: twoFactor.issueChallenge(user.id) });
+      await startSession(req, res, user);
+    },
+
+    async signin2fa(req, res) {
+      const user = await twoFactor.completeLogin(req.body.challenge, req.body.code);
+      if (!user) throw new AuthError("Desafio inválido ou vencido. Entre de novo.", 401);
+      await startSession(req, res, user);
+    },
+
+    async verifyEmail(req, res) {
+      if (!(await emailVerification.confirm(req.body.token))) {
+        return res.status(400).json({ message: "Link inválido ou vencido. Peça um novo email de confirmação." });
+      }
+      res.json({ verified: true });
+    },
+
+    // Sempre a mesma resposta, exista a conta ou não.
+    async resendEmail(req, res) {
+      // Responde antes de trabalhar: o tempo da resposta não revela se a conta existe, e uma falha
+      // no envio não vira um erro que só algumas contas teriam.
+      res.status(202).json({ message: "Se existir uma conta com este email que ainda não foi confirmada, enviamos um novo link (no máximo um por minuto). Olhe também o spam." });
+      if (!env.emailVerificationRequired) return;
+      try {
+        await emailVerification.resend(req.body.email);
+      } catch (err) {
+        console.error("Falha ao reenviar o email de confirmação:", err.message);
+      }
+    },
+
+    async twoFactorStatus(req, res) {
+      res.json({ enabled: Boolean(req.user.totpEnabled), recoveryCodesLeft: req.user.totpEnabled ? await twoFactor.remainingRecoveryCodes(req.user.id) : 0 });
+    },
+
+    async twoFactorSetup(req, res) {
+      res.json(await twoFactor.begin(req.user, req.body.password));
+    },
+
+    async twoFactorEnable(req, res) {
+      const recoveryCodes = await twoFactor.enable(req.user, req.body.code);
+      // Quem tinha uma sessão aberta antes de ativar o 2FA (sem o segundo fator) é desconectado, menos este aparelho.
+      await sessions.revokeOthers(req.user.id, req.session.id);
+      res.json({ recoveryCodes });
+    },
+
+    async twoFactorDisable(req, res) {
+      await twoFactor.disable(req.user, req.body);
+      res.status(204).end();
     },
 
     // Entrega um nonce ao navegador, guardado também num cookie. O token do Google
@@ -115,7 +175,7 @@ export function createAuthController({ env, captcha, google }) {
       // A tentativa vale uma vez só, deu certo ou não.
       res.clearCookie(NONCE_COOKIE, nonceCookie);
       const profile = await google.verify(req.body.credential, expected);
-      await startSession(req, res, await authService.googleSignin(profile));
+      await startSession(req, res, await authService.googleSignin(profile, { releaseUnverified: Boolean(env.emailVerificationRequired) }));
     },
 
     async updateProfile(req, res) {

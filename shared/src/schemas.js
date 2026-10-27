@@ -79,6 +79,41 @@ export const signinSchema = z.object({
     .refine(fitsBcrypt, "Email ou senha incorretos"),
 });
 
+// Código do segundo fator: 6 dígitos do aplicativo ou um código de recuperação (XXXXX-XXXXX).
+const secondFactorCode = z
+  .string({ error: "Digite o código" })
+  .trim()
+  .min(1, "Digite o código")
+  .max(20, "Código inválido");
+
+// Segunda etapa do login: o desafio recebido depois da senha e o código.
+export const signin2faSchema = z.object({
+  challenge: z.string({ error: "Desafio ausente" }).min(10, "Desafio inválido").max(400, "Desafio inválido"),
+  code: secondFactorCode,
+});
+
+// Ativar o 2FA: sempre o código de 6 dígitos do aplicativo.
+export const twoFactorEnableSchema = z.object({
+  code: z.string({ error: "Digite o código" }).trim().regex(/^\d{6}$/, "O código tem 6 dígitos"),
+});
+
+// Desativar o 2FA pede a senha e um código (do aplicativo ou de recuperação).
+// Começar a ativar o 2FA pede a senha: uma sessão roubada sozinha não registra o aplicativo do invasor.
+export const twoFactorSetupSchema = z.object({
+  password: z.string({ error: "A senha é obrigatória" }).min(1, "A senha é obrigatória").refine(fitsBcrypt, "Senha incorreta"),
+});
+
+export const twoFactorDisableSchema = z.object({
+  password: z.string({ error: "A senha é obrigatória" }).min(1, "A senha é obrigatória").refine(fitsBcrypt, "Senha incorreta"),
+  code: secondFactorCode,
+});
+
+export const emailTokenSchema = z.object({
+  token: z.string({ error: "Link inválido" }).min(20, "Link inválido").max(100, "Link inválido"),
+});
+
+export const resendEmailSchema = z.object({ email });
+
 export const TRANSACTION_TYPES = ["input", "output"];
 
 // Entrada do formulário e do corpo da API: o valor chega em reais ("12,50")

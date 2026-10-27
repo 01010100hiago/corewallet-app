@@ -1,9 +1,13 @@
 import { defineConfig } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { rmSync } from "node:fs";
+import { OUTBOX } from "./tests/mail.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const CI = Boolean(process.env.CI);
 // Banco só dos testes de ponta a ponta. Os usuários criados aqui são únicos por execução.
+// Os emails da API (confirmação de cadastro) vão para um arquivo; começa vazio a cada execução.
+rmSync(OUTBOX, { force: true });
 const database = process.env.E2E_DATABASE_URI ?? "mongodb://127.0.0.1:27017/corewallet_e2e";
 
 export default defineConfig({
@@ -44,6 +48,8 @@ export default defineConfig({
         TURNSTILE_SITE_KEY: "",
         TURNSTILE_SECRET_KEY: "",
         GOOGLE_CLIENT_ID: "",
+        // Com o arquivo de emails a confirmação do cadastro fica LIGADA, como no lab com SMTP.
+        MAIL_OUTBOX_FILE: OUTBOX,
       },
     },
     {

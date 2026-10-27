@@ -11,6 +11,9 @@ import { createCaptcha, createPowCaptcha } from "./services/captchaService.js";
 import { createCsrf } from "./middlewares/csrf.js";
 import { createLimiters } from "./middlewares/rateLimit.js";
 import { createGoogleVerifier } from "./services/googleService.js";
+import { createMailer } from "./services/mailer.js";
+import { createEmailVerification } from "./services/emailVerificationService.js";
+import { createTwoFactor } from "./services/twoFactorService.js";
 
 // Mensagem que pode ir para o cliente. Erros do parser de JSON trazem detalhes
 // internos, então viram frases fixas; o resto só aparece se for marcado como público.
@@ -26,6 +29,9 @@ export function createApp(env, deps = {}) {
   const app = express();
   const captcha = deps.captcha ?? (env.turnstile ? createCaptcha(env.turnstile) : env.pow ? createPowCaptcha(env.pow) : createCaptcha(null));
   const google = deps.google ?? createGoogleVerifier(env.googleClientId);
+  const mailer = deps.mailer ?? createMailer(env.mail);
+  const emailVerification = deps.emailVerification ?? createEmailVerification({ mailer, webOrigin: env.webOrigin });
+  const twoFactor = deps.twoFactor ?? createTwoFactor({ jwtSecret: env.jwtSecret, encryptionKey: env.totpEncryptionKey ?? env.jwtSecret });
   const authMiddleware = createAuthMiddleware(env.jwtSecret);
   // env.rateLimits só existe nos testes (false desliga, objeto troca os limites).
   const limiters = createLimiters(env.rateLimits);
@@ -45,7 +51,7 @@ export function createApp(env, deps = {}) {
 
   app.use("/api", healthRouter);
   app.use("/api", limiters.general, createCsrf(env));
-  app.use("/api/auth", createAuthRouter({ env, captcha, google }, authMiddleware, limiters));
+  app.use("/api/auth", createAuthRouter({ env, captcha, google, mailer, emailVerification, twoFactor }, authMiddleware, limiters));
   app.use("/api/transactions", createTransactionRouter(authMiddleware));
   app.use("/api/categories", createCategoryRouter(authMiddleware));
   app.use("/api/analysis", createAnalysisRouter(authMiddleware));
@@ -62,6 +68,8 @@ export function createApp(env, deps = {}) {
     const body = { message: publicMessage(err, status) };
     // O detalhe por campo vai em qualquer erro do cliente (422 de validação, 409 de conflito), nunca em 5xx.
     if (status < 500 && err.errors) body.errors = err.errors;
+    // Código curto para a tela reagir (ex.: email ainda não confirmado).
+    if (status < 500 && err.publicCode) body.code = err.publicCode;
     res.status(status).json(body);
   });
 
