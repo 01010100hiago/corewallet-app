@@ -16,7 +16,7 @@ export default function PasswordField({ noun = "senha", ...props }) {
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
           aria-label={`${shown ? "Ocultar" : "Mostrar"} ${noun}`}
-          className="grid size-9 place-items-center rounded-lg text-muted transition hover:bg-mint-100 hover:text-pine-900"
+          className="grid size-9 place-items-center rounded-md text-muted transition hover:bg-mint-100 hover:text-pine-900"
         >
           <Icon name={shown ? "ocultar" : "mostrar"} className="size-5" />
         </button>

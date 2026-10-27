@@ -50,7 +50,7 @@ export default function Turnstile({ siteKey, onToken, resetKey = 0 }) {
 
   if (failed) {
     return (
-      <p role="alert" className="rounded-xl bg-coral-100 p-3 text-sm text-coral-800">
+      <p role="alert" className="rounded-md bg-coral-100 p-3 text-sm text-coral-800">
         Não foi possível carregar a verificação de segurança. Confira a internet, desative bloqueadores para este site e recarregue a página.
       </p>
     );

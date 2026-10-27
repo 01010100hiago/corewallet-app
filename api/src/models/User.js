@@ -18,6 +18,12 @@ const userSchema = new Schema(
     provider: { type: String, enum: ["password", "google"], default: "password" },
     // O email veio verificado pelo Google. Cadastro com senha não verifica o email.
     emailVerified: { type: Boolean, default: false },
+    // Quantas categorias próprias a pessoa tem por tipo. Serve de reserva atômica para o limite
+    // (ver categoryService): contar e criar em dois passos deixaria o limite furar em disputa.
+    categoryCount: {
+      input: { type: Number, default: 0 },
+      output: { type: Number, default: 0 },
+    },
     // false até a pessoa confirmar o nome na tela "Complete seu perfil".
     profileComplete: { type: Boolean, default: true },
   },

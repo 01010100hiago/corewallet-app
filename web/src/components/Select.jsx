@@ -16,7 +16,7 @@ export default function Select({ label, name, register, error, options, hint, ..
         id={name}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={describedBy}
-        className={`h-12 w-full rounded-xl border bg-white px-3 text-base text-ink transition hover:border-pine-700/60 focus:border-pine-700 focus:outline-2 focus:outline-offset-0 focus:outline-pine-700/30 ${
+        className={`h-12 w-full rounded-md border bg-white px-3 text-base text-ink transition hover:border-pine-700/60 focus:border-pine-700 focus:outline-2 focus:outline-offset-0 focus:outline-pine-700/30 ${
           error ? "border-negative" : "border-line"
         }`}
         {...register(name)}

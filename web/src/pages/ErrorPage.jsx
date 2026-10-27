@@ -12,8 +12,8 @@ export default function ErrorPage({ notFound: forcedNotFound = false }) {
 
   return (
     <main className="grid min-h-screen place-items-center px-5">
-      <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-3xl border border-line bg-white p-8 text-center">
-        <span className="grid size-16 place-items-center rounded-full bg-coral-100 text-coral-800">
+      <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-lg border border-line bg-white p-8 text-center">
+        <span className="grid size-16 place-items-center rounded-md bg-coral-100 text-coral-800">
           <Icon name="aviso" className="size-9" />
         </span>
         <p className="text-6xl font-semibold text-pine-900">{notFound ? "404" : "Ops"}</p>

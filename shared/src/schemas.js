@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseToCents } from "./money.js";
-import { ALL_CATEGORY_IDS, DEFAULT_CATEGORY, isCategoryOf } from "./categories.js";
+import { ALL_CATEGORY_IDS, DEFAULT_CATEGORY, isCategoryOf, isCustomCategoryId } from "./categories.js";
 import { isMonthKey } from "./months.js";
 import { isCommonPassword, fitsBcrypt, PASSWORD_MAX_BYTES } from "./password.js";
 
@@ -107,7 +107,10 @@ const transactionFields = {
     .trim()
     .min(3, "A descrição precisa ter no mínimo 3 caracteres")
     .max(100, "A descrição pode ter no máximo 100 caracteres"),
-  category: z.enum(ALL_CATEGORY_IDS, { error: "Categoria inválida" }).default(DEFAULT_CATEGORY),
+  category: z
+    .string({ error: "Categoria inválida" })
+    .refine((id) => ALL_CATEGORY_IDS.includes(id) || isCustomCategoryId(id), "Categoria inválida")
+    .default(DEFAULT_CATEGORY),
 };
 
 // Campos que o formulário (e a edição) controlam. O tipo vem da tela/URL.
@@ -116,14 +119,17 @@ export const transactionFormSchema = z.object(transactionFields);
 // a categoria que o lançamento já tinha.
 export const transactionUpdateSchema = z.object({
   ...transactionFields,
-  category: z.enum(ALL_CATEGORY_IDS, { error: "A categoria é obrigatória" }),
+  category: z
+    .string({ error: "A categoria é obrigatória" })
+    .refine((id) => ALL_CATEGORY_IDS.includes(id) || isCustomCategoryId(id), "Categoria inválida"),
 });
 
 // Corpo de POST /transactions: a categoria precisa ser do tipo (não existe "Salário" numa saída).
 export const transactionSchema = z
   .object({ ...transactionFields, type: z.enum(TRANSACTION_TYPES, { error: "Tipo inválido" }) })
   .superRefine((data, ctx) => {
-    if (!isCategoryOf(data.type, data.category)) {
+    // Categoria da pessoa (id do Mongo): quem confere se existe e é do tipo é a API.
+    if (!isCustomCategoryId(data.category) && !isCategoryOf(data.type, data.category)) {
       ctx.addIssue({ code: "custom", path: ["category"], message: "Categoria não combina com o tipo do lançamento" });
     }
   });
@@ -131,4 +137,30 @@ export const transactionSchema = z
 // ?month=YYYY-MM em GET /transactions (opcional).
 export const listQuerySchema = z.object({
   month: z.string().refine(isMonthKey, "Mês inválido. Use o formato 2026-10").optional(),
+});
+
+// Nome de categoria criada pela pessoa: 2 a 30 caracteres, começa com letra ou número.
+export const categoryNameSchema = z
+  .string({ error: "O nome da categoria é obrigatório" })
+  .transform((v) => v.trim().replace(/\s+/g, " "))
+  .pipe(
+    z
+      .string()
+      .min(2, "O nome precisa ter no mínimo 2 caracteres")
+      .max(30, "O nome pode ter no máximo 30 caracteres")
+      .regex(/^[\p{L}\p{N}][\p{L}\p{N} .,&'+/-]*$/u, "Use só letras, números e espaços")
+  );
+
+export const newCategorySchema = z.object({
+  type: z.enum(TRANSACTION_TYPES, { error: "Tipo inválido" }),
+  name: categoryNameSchema,
+});
+
+// ?months=3|6|12 em GET /analysis (padrão 6): quantos meses, contando o atual, a análise cobre.
+export const ANALYSIS_PERIODS = [3, 6, 12];
+export const analysisQuerySchema = z.object({
+  months: z
+    .enum(ANALYSIS_PERIODS.map(String), { error: "Período inválido. Use 3, 6 ou 12 meses" })
+    .default("6")
+    .transform(Number),
 });

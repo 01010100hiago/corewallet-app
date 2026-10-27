@@ -97,7 +97,7 @@ export default function GoogleButton({ clientId, onCredential }) {
 
   if (failed) {
     return (
-      <p role="alert" className="rounded-xl bg-coral-100 p-3 text-sm text-coral-800">
+      <p role="alert" className="rounded-md bg-coral-100 p-3 text-sm text-coral-800">
         Não foi possível carregar o login com o Google. Use o email e a senha, ou recarregue a página.
       </p>
     );

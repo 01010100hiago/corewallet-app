@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import healthRouter from "./routes/healthRoutes.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
 import { createTransactionRouter } from "./routes/transactionRoutes.js";
+import { createCategoryRouter } from "./routes/categoryRoutes.js";
+import { createAnalysisRouter } from "./routes/analysisRoutes.js";
 import { createAuthMiddleware } from "./middlewares/authMiddleware.js";
 import { createCaptcha } from "./services/captchaService.js";
 import { createCsrf } from "./middlewares/csrf.js";
@@ -45,6 +47,8 @@ export function createApp(env, deps = {}) {
   app.use("/api", limiters.general, createCsrf(env));
   app.use("/api/auth", createAuthRouter({ env, captcha, google }, authMiddleware, limiters));
   app.use("/api/transactions", createTransactionRouter(authMiddleware));
+  app.use("/api/categories", createCategoryRouter(authMiddleware));
+  app.use("/api/analysis", createAnalysisRouter(authMiddleware));
 
   app.use((req, res) => {
     res.status(404).json({ message: "Rota não encontrada" });

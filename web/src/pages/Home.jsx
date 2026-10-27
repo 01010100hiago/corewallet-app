@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { formatCents, isMonthKey, monthKeyOf, monthLabel, shiftMonth } from "@corewallet/shared";
 import { useAuth } from "../context/authContext.js";
 import { api, getErrorMessage } from "../lib/api.js";
@@ -36,7 +37,8 @@ export default function Home() {
   const month = isMonthKey(requested) && requested <= current ? requested : current;
   const [result, setResult] = useState(null); // { month, data } | { month, error }
   const [reload, setReload] = useState(0);
-  const [notice, setNotice] = useState(location.state?.notice ?? "");
+  const [notice, setNotice] = useState(location.state?.notice ? { text: location.state.notice } : null);
+  const outlet = useOutletContext();
 
   // O aviso veio pelo estado da navegação, que sobrevive a F5 e ao botão voltar.
   // Depois de lido, limpa o estado para ele não reaparecer sem ação nova.
@@ -61,7 +63,7 @@ export default function Home() {
 
   const changeMonth = useCallback(
     (next) => {
-      setNotice("");
+      setNotice(null);
       setParams(next === current ? {} : { mes: next }, { replace: false });
     },
     [current, setParams]
@@ -78,10 +80,42 @@ export default function Home() {
       // 404: já tinha sido excluído (outra aba); a lista só estava velha.
       if (err.response?.status !== 404) throw new Error(getErrorMessage(err), { cause: err });
     }
-    setNotice("Lançamento excluído.");
+    setNotice({ text: "Lançamento excluído.", extra: "Ele continua no histórico.", undo: { kind: "restore", id: t.id } });
     setReload((n) => n + 1);
     // A linha excluída sai da tela com o foco dentro dela: leva o foco para o título da lista.
     listHeadingRef.current?.focus();
+  }
+
+  // Arquivar: sai da lista, mas continua contando no saldo, nos totais e no gráfico.
+  async function archiveTransaction(t) {
+    try {
+      await api.post(`/transactions/${t.id}/archive`);
+      setNotice({ text: "Lançamento arquivado.", extra: "Sai da lista, mas continua contando no saldo.", undo: { kind: "unarchive", id: t.id } });
+      setReload((n) => n + 1);
+      listHeadingRef.current?.focus();
+    } catch (err) {
+      if (err.response?.status === 401) return expire();
+      // 404: já estava arquivado ou foi excluído em outra aba; a lista só estava velha.
+      if (err.response?.status === 404) return setReload((n) => n + 1);
+      setNotice({ text: `Não foi possível arquivar: ${getErrorMessage(err)}` });
+    }
+  }
+
+  // Desfazer logo depois de excluir (restaura) ou de arquivar (desarquiva); tudo fica no histórico.
+  const UNDO = {
+    restore: { path: "restore", done: "Lançamento restaurado.", fail: "restaurar" },
+    unarchive: { path: "unarchive", done: "Lançamento desarquivado.", fail: "desarquivar" },
+  };
+  async function undo({ kind, id }) {
+    const step = UNDO[kind];
+    try {
+      await api.post(`/transactions/${id}/${step.path}`);
+      setNotice({ text: step.done });
+      setReload((n) => n + 1);
+    } catch (err) {
+      if (err.response?.status === 401) return expire();
+      setNotice({ text: `Não foi possível ${step.fail}: ${getErrorMessage(err)}` });
+    }
   }
 
   const ready = result?.month === month;
@@ -89,59 +123,88 @@ export default function Home() {
   const error = ready ? (result.error ?? "") : "";
   const data = ready ? (result.data ?? null) : null;
   const balance = data?.balance ?? null;
+  const balanceText = balance === null ? "—" : formatCents(balance);
   const transactions = data?.transactions ?? [];
   const summary = data?.month ?? null;
+  const customCategories = data?.categories ?? [];
+
+  const hero = (
+    <section aria-label="Saldo" className="mx-auto max-w-3xl px-4 pb-16 pt-3 text-white">
+      <h1 className="min-w-0 text-base font-normal text-mint-300 [overflow-wrap:anywhere]">Olá, {user?.name}</h1>
+      <p className="mt-5 text-sm text-mint-300">Saldo</p>
+      <p
+        data-testid="balance"
+        className={`tabular mt-1 font-semibold tracking-tight [overflow-wrap:anywhere] ${
+          // Valores de milhões não cabem em letra grande num celular estreito.
+          balanceText.length > 12 ? "text-3xl sm:text-5xl" : "text-4xl sm:text-5xl"
+        } ${balance !== null && balance < 0 ? "text-coral-400" : ""}`}
+      >
+        {balanceText}
+      </p>
+      <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+        <Stat label="Total de receitas" value={data?.totalIn} icon="entrada" />
+        <Stat label="Total de despesas" value={data?.totalOut} icon="saida" />
+      </dl>
+    </section>
+  );
+
+  // Dentro do AppShell o saldo vai para a faixa verde do topo; sem ele (testes) fica aqui mesmo.
+  let heroNode;
+  if (outlet) heroNode = outlet.heroSlot ? createPortal(hero, outlet.heroSlot) : null;
+  else heroNode = <div className="on-dark rounded-lg bg-pine-900 pt-3">{hero}</div>;
 
   return (
     <div className="flex flex-col gap-5">
+      {heroNode}
+
+      <section aria-label="Novo lançamento" className="relative z-10 -mt-12 grid gap-3 rounded-lg border border-line bg-white p-3 shadow-md sm:grid-cols-2">
+        <LinkButton to="/transaction/input" icon="mais" variant="soft">
+          Nova receita
+        </LinkButton>
+        <LinkButton to="/transaction/output" icon="menos">
+          Nova despesa
+        </LinkButton>
+      </section>
+
       {notice && (
-        <p role="status" className="flex items-center gap-2 rounded-2xl bg-mint-100 p-3.5 text-sm text-pine-900">
+        <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-mint-100 p-3.5 text-sm text-pine-900">
           <Icon name="ok" className="size-5 shrink-0" />
-          <span className="flex-1">{notice}</span>
-          <button type="button" onClick={() => setNotice("")} className="rounded-lg px-2 py-1 font-medium underline underline-offset-4 hover:bg-white/60">
+          <span className="min-w-0 flex-1">
+            <span>{notice.text}</span>
+            {notice.extra && <span className="text-pine-800"> {notice.extra}</span>}
+          </span>
+          {notice.undo && (
+            <button type="button" onClick={() => undo(notice.undo)} className="rounded-md px-2 py-1 font-semibold underline underline-offset-4 hover:bg-white/60">
+              Desfazer
+            </button>
+          )}
+          <button type="button" onClick={() => setNotice(null)} className="rounded-md px-2 py-1 font-medium underline underline-offset-4 hover:bg-white/60">
             Fechar
           </button>
         </p>
       )}
 
-      <section
-        aria-label="Saldo"
-        className="on-dark rounded-3xl bg-pine-900 bg-[radial-gradient(40rem_20rem_at_100%_0%,rgba(31,122,93,0.65),transparent_60%)] p-6 text-white shadow-sm sm:p-8"
-      >
-        <h1 className="min-w-0 text-base font-normal text-mint-300 [overflow-wrap:anywhere]">Olá, {user?.name}</h1>
-        <p className="mt-4 text-sm text-mint-300">Saldo</p>
-        <p data-testid="balance" className={`tabular mt-1 text-4xl font-semibold tracking-tight sm:text-5xl ${balance !== null && balance < 0 ? "text-coral-400" : ""}`}>
-          {balance === null ? "—" : formatCents(balance)}
-        </p>
-
-        <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Total de entradas" value={data?.totalIn} icon="entrada" />
-          <Stat label="Total de saídas" value={data?.totalOut} icon="saida" />
-        </dl>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <LinkButton to="/transaction/input" icon="mais" variant="soft">
-            Nova entrada
-          </LinkButton>
-          <LinkButton to="/transaction/output" icon="menos">
-            Nova saída
-          </LinkButton>
-        </div>
-      </section>
-
       <ErrorMessage>{error}</ErrorMessage>
 
-      <section aria-label="Mês" className="rounded-3xl border border-line bg-white p-4 shadow-sm sm:p-5">
+      <section aria-label="Mês" className="rounded-lg border border-line bg-white p-4 shadow-sm sm:p-5">
         <MonthNav month={month} current={current} previous={shiftMonth(month, -1)} next={shiftMonth(month, 1)} onChange={changeMonth} />
         <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <MonthStat label="Entradas do mês" value={summary?.totalIn} className="text-positive" />
-          <MonthStat label="Saídas do mês" value={summary?.totalOut} className="text-negative" />
+          <MonthStat label="Receitas do mês" value={summary?.totalIn} className="text-positive" />
+          <MonthStat label="Despesas do mês" value={summary?.totalOut} className="text-negative" />
         </dl>
+        {summary?.archivedCount > 0 && (
+          <p className="mt-3 text-sm text-muted">
+            Os totais incluem {summary.archivedCount} {summary.archivedCount === 1 ? "lançamento arquivado" : "lançamentos arquivados"}, que não aparecem na lista.{" "}
+            <Link to="/history" className="font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
+              Ver arquivados
+            </Link>
+          </p>
+        )}
       </section>
 
-      {summary && <SpendingChart categories={summary.categories} />}
+      {summary && <SpendingChart categories={summary.categories} custom={customCategories} />}
 
-      <section aria-label="Lançamentos" className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
+      <section aria-label="Lançamentos" className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 ref={listHeadingRef} tabIndex={-1} className="text-lg font-semibold text-pine-900">
             Lançamentos
@@ -162,7 +225,7 @@ export default function Home() {
                 <h3 className="bg-canvas px-5 py-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.label}</h3>
                 <ul className="divide-y divide-line">
                   {group.items.map((t) => (
-                    <TransactionRow key={t.id} transaction={t} onDelete={deleteTransaction} />
+                    <TransactionRow key={t.id} transaction={t} onDelete={deleteTransaction} onArchive={archiveTransaction} categories={customCategories} />
                   ))}
                 </ul>
               </div>
@@ -180,12 +243,13 @@ export default function Home() {
 }
 
 function Stat({ label, value, icon }) {
+  // No celular o ícone fica em cima do texto: o valor ganha a largura toda e nunca é cortado.
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-pine-800/70 px-4 py-3 [--icon-accent:currentColor]">
+    <div className="flex flex-col items-start gap-2 rounded-lg bg-white/10 px-4 py-3 [--icon-accent:currentColor] sm:flex-row sm:items-center sm:gap-3">
       <Icon name={icon} className="size-6 shrink-0 text-mint-300" />
       <div className="min-w-0">
         <dt className="text-mint-300">{label}</dt>
-        <dd className="tabular truncate font-semibold">{typeof value === "number" ? formatCents(value) : "—"}</dd>
+        <dd className="tabular font-semibold [overflow-wrap:anywhere]">{typeof value === "number" ? formatCents(value) : "—"}</dd>
       </div>
     </div>
   );
@@ -196,7 +260,7 @@ function Skeleton() {
     <div role="status" aria-label="Carregando lançamentos" className="divide-y divide-line">
       {[0, 1, 2].map((n) => (
         <div key={n} className="flex animate-pulse items-center gap-3 px-5 py-3.5">
-          <span className="size-10 shrink-0 rounded-full bg-line" />
+          <span className="size-10 shrink-0 rounded-md bg-line" />
           <span className="flex flex-1 flex-col gap-2">
             <span className="h-3.5 w-1/2 rounded bg-line" />
             <span className="h-3 w-1/4 rounded bg-line" />
@@ -210,9 +274,9 @@ function Skeleton() {
 
 function MonthStat({ label, value, className }) {
   return (
-    <div className="rounded-2xl bg-canvas px-4 py-3">
+    <div className="rounded-lg bg-canvas px-4 py-3">
       <dt className="text-muted">{label}</dt>
-      <dd className={`tabular font-semibold ${className}`}>{typeof value === "number" ? formatCents(value) : "—"}</dd>
+      <dd className={`tabular font-semibold [overflow-wrap:anywhere] ${className}`}>{typeof value === "number" ? formatCents(value) : "—"}</dd>
     </div>
   );
 }
@@ -220,10 +284,10 @@ function MonthStat({ label, value, className }) {
 function EmptyState({ month, summary }) {
   return (
     <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-      <span className="grid size-16 place-items-center rounded-full bg-mint-100 text-pine-900">
+      <span className="grid size-16 place-items-center rounded-md bg-mint-100 text-pine-900">
         <Icon name="carteira" className="size-9" />
       </span>
-      <p className="font-medium">{summary ? `Nenhum lançamento em ${monthLabel(month)}` : "Ainda não há entradas nem saídas"}</p>
+      <p className="font-medium">{summary ? `Nenhum lançamento em ${monthLabel(month)}` : "Nenhum lançamento registrado"}</p>
       <p className="max-w-xs text-sm text-muted">Registre um para acompanhar o seu saldo.</p>
     </div>
   );

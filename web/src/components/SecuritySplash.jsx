@@ -63,7 +63,7 @@ export default function SecuritySplash({ title = "Verificando com segurança", s
           {steps.map((s) => (
             <li
               key={s.label}
-              className={`flex items-center gap-3 rounded-xl bg-pine-800/70 px-4 py-3 text-sm [--icon-accent:currentColor] ${
+              className={`flex items-center gap-3 rounded-md bg-pine-800/70 px-4 py-3 text-sm [--icon-accent:currentColor] ${
                 s.state === "pending" ? "text-mint-300" : s.state === "warn" ? "text-coral-100" : "text-mint-50"
               }`}
             >

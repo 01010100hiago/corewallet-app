@@ -113,6 +113,14 @@ const paths = {
       <path d="M10 11.6 V16.6 M14 11.6 V16.6" />
     </>
   ),
+  arquivar: (
+    <>
+      <rect className="t" x={3} y={4} width={18} height={5} rx={1.6} />
+      <rect x={3} y={4} width={18} height={5} rx={1.6} />
+      <path d="M5 9 V17.4 a2.6 2.6 0 0 0 2.6 2.6 H16.4 a2.6 2.6 0 0 0 2.6 -2.6 V9" />
+      <path className="a" d="M12 11.6 V16.6 M9.8 14.6 L12 16.8 L14.2 14.6" />
+    </>
+  ),
   grafico: (
     <>
       <rect className="t" x={3} y={3.5} width={18} height={17} rx={3.5} />

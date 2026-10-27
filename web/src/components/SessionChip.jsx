@@ -17,7 +17,7 @@ const CONNECTION = {
 // Selo "Sessão protegida" no topo. Ao abrir mostra o que é verdade agora:
 // quem está logado, quando a sessão começou, quando vence e como a conexão chegou.
 // É um botão que mostra e esconde um painel (disclosure), não um diálogo modal.
-export default function SessionChip() {
+export default function SessionChip({ onDark = false }) {
   const { user, session, logout, now } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -72,8 +72,12 @@ export default function SessionChip() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={open ? "session-details" : undefined}
-        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-3 text-sm font-medium transition sm:px-3.5 ${
-          warn ? "bg-coral-100 text-coral-800 hover:bg-coral-100/70" : "bg-mint-100 text-pine-900 hover:bg-mint-300/50"
+        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md px-3 text-sm font-medium transition sm:px-3.5 ${
+          warn
+            ? "bg-coral-100 text-coral-800 hover:bg-coral-100/70"
+            : onDark
+              ? "bg-white/12 text-white hover:bg-white/20"
+              : "bg-mint-100 text-pine-900 hover:bg-mint-300/50"
         } [--icon-accent:currentColor]`}
       >
         <Icon name={warn ? "aviso" : "escudo"} className="size-5" />
@@ -85,10 +89,10 @@ export default function SessionChip() {
           id="session-details"
           role="group"
           aria-label="Detalhes da sessão"
-          className="absolute right-0 z-10 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-line bg-white p-4 shadow-lg"
+          className="absolute right-0 z-30 [--focus-ring:var(--color-pine-700)] mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-line bg-white p-4 shadow-lg"
         >
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-pine-900 font-semibold text-white">
+            <span aria-hidden="true" className="grid size-10 place-items-center rounded-md bg-pine-900 font-semibold text-white">
               {user?.name?.charAt(0).toUpperCase()}
             </span>
             <div className="min-w-0">
@@ -116,12 +120,28 @@ export default function SessionChip() {
 
           <div className="mt-4 flex flex-col gap-2">
             <Link
+              to="/analysis"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
+            >
+              <Icon name="grafico" className="size-5" />
+              Análise financeira
+            </Link>
+            <Link
+              to="/history"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
+            >
+              <Icon name="relogio" className="size-5" />
+              Histórico de alterações
+            </Link>
+            <Link
               to="/account"
               onClick={() => setOpen(false)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-pine-900 transition hover:bg-mint-100"
             >
               <Icon name="pessoa" className="size-5" />
-              Seus dados
+              Minha conta
             </Link>
             <Button variant="soft" icon="sair" onClick={handleLogout}>
               Sair

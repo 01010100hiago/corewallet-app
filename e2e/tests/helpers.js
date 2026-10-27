@@ -34,7 +34,7 @@ export async function register(page, user) {
 
 // Cria um lançamento pela tela.
 export async function addTransaction(page, { type, value, description, category }) {
-  await page.getByRole("link", { name: type === "input" ? /Nova entrada/ : /Nova saída/ }).click();
+  await page.getByRole("link", { name: type === "input" ? /Nova receita/ : /Nova despesa/ }).click();
   await page.getByLabel("Valor (R$)").fill(value);
   await page.getByLabel("Descrição").fill(description);
   if (category) await page.getByLabel("Categoria").selectOption(category);

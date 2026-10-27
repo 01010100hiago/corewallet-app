@@ -8,16 +8,23 @@ import Devices from "./Devices.jsx";
 const phone = { id: "b", current: false, device: { label: "Safari no iOS", kind: "phone" }, ip: "189.12.•.•", startedAt: "2026-10-26T10:00:00.000Z", lastUsedAt: "2026-10-27T09:00:00.000Z", expiresAt: "2026-11-25T10:00:00.000Z" };
 const mac = { id: "a", current: true, device: { label: "Chrome no macOS", kind: "computer" }, ip: "10.0.•.•", startedAt: "2026-10-27T08:00:00.000Z", lastUsedAt: "2026-10-27T14:00:00.000Z", expiresAt: "2026-11-26T08:00:00.000Z" };
 
-describe("Aparelhos conectados", () => {
+describe("Dispositivos conectados", () => {
   test("lista as sessões, marca a atual e só oferece encerrar as outras", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: [mac, phone] });
     renderPage(<Devices />);
     const rows = await screen.findAllByRole("listitem");
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]).getByText("Este aparelho")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Este dispositivo")).toBeInTheDocument();
     expect(within(rows[0]).queryByRole("button")).toBeNull();
     expect(within(rows[1]).getByText(/IP 189\.12\.•\.•/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Encerrar sessão em Safari no iOS" })).toBeInTheDocument();
+  });
+
+  test("acesso do próprio computador não mostra IP mascarado sem sentido", async () => {
+    vi.spyOn(api, "get").mockResolvedValue({ data: [{ ...mac, ip: "deste computador" }] });
+    renderPage(<Devices />);
+    expect(await screen.findByText(/acesso deste computador/)).toBeInTheDocument();
+    expect(screen.queryByText(/IP /)).toBeNull();
   });
 
   test("encerrar um aparelho chama a API e tira da lista", async () => {
@@ -44,7 +51,7 @@ describe("Aparelhos conectados", () => {
     renderPage(<Devices />);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
-    expect(await screen.findByText("Este aparelho")).toBeInTheDocument();
+    expect(await screen.findByText("Este dispositivo")).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(2);
   });
 
@@ -52,7 +59,7 @@ describe("Aparelhos conectados", () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: [mac, phone] });
     const logoutAll = vi.fn().mockResolvedValue();
     renderPage(<Devices />, { auth: fakeAuth({ logoutAll }) });
-    await userEvent.click(await screen.findByRole("button", { name: "Sair de todos os aparelhos" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Encerrar todas as sessões" }));
     expect(logoutAll).toHaveBeenCalled();
     expect(await screen.findByText("página de login")).toBeInTheDocument();
   });
@@ -60,7 +67,7 @@ describe("Aparelhos conectados", () => {
   test("se sair de todos falhar, continua na tela com o aviso", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: [mac] });
     renderPage(<Devices />, { auth: fakeAuth({ logoutAll: vi.fn().mockRejectedValue(new Error("rede")) }) });
-    await userEvent.click(await screen.findByRole("button", { name: "Sair de todos os aparelhos" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Encerrar todas as sessões" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("página de login")).toBeNull();
   });

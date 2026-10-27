@@ -87,11 +87,11 @@ test("aparelhos: encerrar a sessão de outro aparelho o derruba na hora", async 
   await expect(other.getByTestId("balance")).toBeVisible();
 
   await page.goto("/account");
-  const devices = page.getByRole("region", { name: "Aparelhos conectados" });
+  const devices = page.getByRole("region", { name: "Dispositivos conectados" });
   await expect(devices.getByRole("listitem")).toHaveCount(2);
-  await expect(devices.getByText("Este aparelho")).toHaveCount(1);
+  await expect(devices.getByText("Este dispositivo")).toHaveCount(1);
   await expect(devices.getByText("Safari no iOS")).toBeVisible();
-  await expect(devices.getByText(/IP \d+\.\d+\.•\.•|IP [0-9a-f:]+•/)).toHaveCount(2);
+  await expect(devices.getByText(/acesso deste computador|IP \d+\.\d+\.•\.•|IP [0-9a-f:]+•/)).toHaveCount(2);
 
   await devices.getByRole("button", { name: "Encerrar sessão em Safari no iOS" }).click();
   await expect(devices.getByRole("listitem")).toHaveCount(1);
@@ -101,7 +101,7 @@ test("aparelhos: encerrar a sessão de outro aparelho o derruba na hora", async 
   await expect(other).toHaveURL(/\/signin$/);
   await otherContext.close();
 
-  // Este aparelho continua.
+  // Este dispositivo continua.
   await page.goto("/");
   await expect(page.getByTestId("balance")).toBeVisible();
 });
@@ -112,7 +112,7 @@ test("sair de todos os aparelhos volta ao login e apaga a sessão no servidor", 
   const refresh = (await cookie(context, "cw_refresh")).value;
 
   await page.goto("/account");
-  await page.getByRole("button", { name: "Sair de todos os aparelhos" }).click();
+  await page.getByRole("button", { name: "Encerrar todas as sessões" }).click();
   await expect(page).toHaveURL(/\/signin$/);
 
   // O token de renovação antigo não vale mais.

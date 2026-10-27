@@ -17,6 +17,11 @@ import {
   monthKeyOf,
   shiftMonth,
   monthLabel,
+  categoryOptions,
+  isCustomCategoryId,
+  categoryNameSchema,
+  newCategorySchema,
+  MAX_CUSTOM_CATEGORIES_PER_TYPE,
   parseToCents,
   formatCents,
   evaluatePassword,
@@ -180,6 +185,9 @@ test("categorias: sem repetição dentro do tipo, rótulos e consulta", () => {
   assert.equal(isCategoryOf("transfer", "outros"), false);
   assert.equal(isCategoryOf("output", undefined), false);
   assert.equal(categoryLabel("output", "contas"), "Contas e serviços");
+  assert.equal(categoryLabel("input", "freelance"), "Renda extra");
+  assert.equal(categoryLabel("output", "outros"), "Outras despesas");
+  assert.equal(categoryLabel("input", "outros"), "Outras receitas");
   assert.equal(categoryLabel("output", "nao-existe"), "Outros");
   assert.ok(ALL_CATEGORY_IDS.includes("salario") && ALL_CATEGORY_IDS.includes("moradia"));
 });
@@ -212,4 +220,55 @@ test("consulta de listagem aceita só month válido", () => {
   assert.deepEqual(listQuerySchema.parse({ month: "2026-10" }), { month: "2026-10" });
   assert.equal(listQuerySchema.safeParse({ month: "2026-13" }).success, false);
   assert.equal(listQuerySchema.safeParse({ month: { $ne: 1 } }).success, false);
+});
+
+const PETS = "a1b2c3d4e5f60718293a4b5c";
+
+test("categorias próprias: reconhecimento do id, rótulo e opções por tipo", () => {
+  assert.equal(isCustomCategoryId(PETS), true);
+  for (const bad of ["mercado", "", PETS.toUpperCase(), PETS + "0", PETS.slice(1), 123, null, undefined, { $ne: 1 }]) {
+    assert.equal(isCustomCategoryId(bad), false, String(bad));
+  }
+  assert.equal(MAX_CUSTOM_CATEGORIES_PER_TYPE, 30);
+  const custom = [{ id: PETS, type: "output", name: "Pets" }, { id: "b".repeat(24), type: "input", name: "Bicos" }];
+  assert.equal(categoryLabel("output", PETS, custom), "Pets");
+  assert.equal(categoryLabel("input", PETS, custom), "Outros", "categoria de saída não rotula uma entrada");
+  assert.equal(categoryLabel("output", "mercado", custom), "Supermercado");
+  assert.equal(categoryLabel("output", "c".repeat(24), custom), "Outros");
+  const out = categoryOptions("output", custom);
+  assert.deepEqual(out.at(-1), { id: PETS, label: "Pets", custom: true });
+  assert.ok(out.slice(0, -1).every((o) => o.custom === false));
+  assert.ok(!out.some((o) => o.label === "Bicos"));
+  assert.equal(categoryOptions("input", custom).at(-1).label, "Bicos");
+});
+
+test("lançamento aceita id de categoria própria (a API confere se existe), mas não lixo", () => {
+  const base = { value: "10", description: "Ração" };
+  assert.equal(transactionSchema.parse({ ...base, type: "output", category: PETS }).category, PETS);
+  assert.equal(transactionUpdateSchema.parse({ ...base, category: PETS }).category, PETS);
+  for (const category of ["nao-existe", PETS + "0", PETS.toUpperCase(), "", 5, null, { $ne: 1 }]) {
+    assert.equal(transactionSchema.safeParse({ ...base, type: "output", category }).success, false, JSON.stringify(category));
+    assert.equal(transactionUpdateSchema.safeParse({ ...base, category }).success, false, JSON.stringify(category));
+  }
+});
+
+test("nome de categoria: limpa os espaços e recusa o que não é nome", () => {
+  assert.equal(categoryNameSchema.parse("  Aulas   de  violão "), "Aulas de violão");
+  assert.equal(categoryNameSchema.parse("Mãe & filhos"), "Mãe & filhos");
+  assert.equal(categoryNameSchema.parse("Imposto 2026"), "Imposto 2026");
+  assert.equal(categoryNameSchema.parse("linha\n\tnova"), "linha nova");
+  assert.equal(categoryNameSchema.parse("ab"), "ab");
+  assert.equal(categoryNameSchema.parse("x".repeat(30)).length, 30);
+  for (const bad of ["a", "   ", "", "x".repeat(31), "<script>", "-começa", "😀😀", ".ponto", { $ne: 1 }, ["Pets"], null, undefined, 42]) {
+    assert.equal(categoryNameSchema.safeParse(bad).success, false, JSON.stringify(bad));
+  }
+  assert.match(categoryNameSchema.safeParse("a").error.issues[0].message, /mínimo 2/);
+  assert.match(categoryNameSchema.safeParse("x".repeat(31)).error.issues[0].message, /máximo 30/);
+});
+
+test("nova categoria: tipo e nome obrigatórios, campos extras ignorados", () => {
+  assert.deepEqual(newCategorySchema.parse({ type: "output", name: " Pets ", userId: "x" }), { type: "output", name: "Pets" });
+  assert.equal(newCategorySchema.safeParse({ type: "transfer", name: "Pets" }).success, false);
+  assert.equal(newCategorySchema.safeParse({ name: "Pets" }).success, false);
+  assert.equal(newCategorySchema.safeParse({ type: "input" }).success, false);
 });

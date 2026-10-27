@@ -67,9 +67,9 @@ export default function Devices() {
   }
 
   return (
-    <section aria-labelledby="devices-title" className="rounded-3xl border border-line bg-white p-6">
+    <section aria-labelledby="devices-title" className="rounded-lg border border-line bg-white p-6">
       <h2 id="devices-title" className="font-semibold text-pine-900">
-        Aparelhos conectados
+        Dispositivos conectados
       </h2>
       <p className="mt-1 text-sm text-muted">
         Cada linha é uma sessão aberta na sua conta. Se não reconhecer uma, encerre.
@@ -86,7 +86,7 @@ export default function Devices() {
 
       {!loadError && list === null && (
         <p role="status" className="mt-4 text-sm text-muted">
-          Carregando aparelhos…
+          Carregando dispositivos…
         </p>
       )}
 
@@ -98,11 +98,11 @@ export default function Devices() {
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   {d.device.label}
-                  {d.current && <span className="ml-2 rounded-full bg-mint-100 px-2 py-0.5 text-xs font-semibold text-pine-900">Este aparelho</span>}
+                  {d.current && <span className="ml-2 rounded-md bg-mint-100 px-2 py-0.5 text-xs font-semibold text-pine-900">Este dispositivo</span>}
                 </p>
                 <p className="text-sm text-muted">
                   Último uso em {when(d.lastUsedAt)}
-                  {d.ip && <> · IP {d.ip}</>}
+                  {d.ip && <> · {d.ip === "deste computador" ? "acesso deste computador" : `IP ${d.ip}`}</>}
                 </p>
                 <p className="text-sm text-muted">Sessão termina em {dayjs(d.expiresAt).format("DD/MM/YYYY")}</p>
               </div>
@@ -112,7 +112,7 @@ export default function Devices() {
                   onClick={() => revoke(d)}
                   disabled={busy !== ""}
                   aria-label={`Encerrar sessão em ${d.device.label}`}
-                  className="h-10 shrink-0 rounded-xl px-3 text-sm font-semibold text-coral-800 transition hover:bg-coral-100 disabled:opacity-60"
+                  className="h-10 shrink-0 rounded-md px-3 text-sm font-semibold text-coral-800 transition hover:bg-coral-100 disabled:opacity-60"
                 >
                   Encerrar
                 </button>
@@ -131,7 +131,7 @@ export default function Devices() {
       {list && (
         <div className="mt-5 border-t border-line pt-5">
           <Button variant="soft" icon="sair" onClick={leaveEverywhere} disabled={busy !== ""}>
-            Sair de todos os aparelhos
+            Encerrar todas as sessões
           </Button>
         </div>
       )}

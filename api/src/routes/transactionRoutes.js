@@ -9,9 +9,15 @@ export function createTransactionRouter(authMiddleware) {
   router.use(authMiddleware);
   router.get("/", validateQuery(listQuerySchema), transactionController.list);
   router.post("/", validate(transactionSchema), transactionController.create);
+  // "activity" vem antes de "/:id", senão seria lido como um id.
+  router.get("/activity", transactionController.activity);
   router.get("/:id", transactionController.get);
+  router.get("/:id/history", transactionController.history);
   router.put("/:id", validate(transactionUpdateSchema), transactionController.update);
   router.delete("/:id", transactionController.remove);
+  router.post("/:id/restore", transactionController.restore);
+  router.post("/:id/archive", transactionController.archive);
+  router.post("/:id/unarchive", transactionController.unarchive);
 
   return router;
 }

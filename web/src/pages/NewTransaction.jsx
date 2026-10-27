@@ -6,6 +6,7 @@ import { api, getErrorMessage } from "../lib/api.js";
 import TransactionForm from "../components/TransactionForm.jsx";
 import { TYPES } from "../lib/transactionTypes.js";
 import { usePageTitle } from "../lib/usePageTitle.js";
+import { useCategories, createCategory } from "../lib/useCategories.js";
 
 export default function NewTransaction() {
   const { type } = useParams();
@@ -18,6 +19,7 @@ function NewTransactionForm({ type }) {
   const { expire } = useAuth();
   const [apiError, setApiError] = useState("");
   usePageTitle(TYPES[type].title);
+  const categories = useCategories();
 
   async function onSubmit(data) {
     setApiError("");
@@ -36,5 +38,10 @@ function NewTransactionForm({ type }) {
     }
   }
 
-  return <TransactionForm type={type} onSubmit={onSubmit} apiError={apiError} />;
+  return (
+    <>
+      <TransactionForm key={type} type={type} onSubmit={onSubmit} apiError={apiError} customCategories={categories.list} onCreateCategory={createCategory} />
+      {categories.status === "error" && <p className="mx-auto mt-3 max-w-lg text-sm text-muted">Não deu para carregar as suas categorias agora. Só as padrão aparecem.</p>}
+    </>
+  );
 }

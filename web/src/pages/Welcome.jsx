@@ -51,8 +51,8 @@ export default function Welcome() {
       <h1 className="text-3xl font-semibold tracking-tight text-pine-900">Complete seu perfil</h1>
       <p className="mt-1 text-muted">{user?.provider === "google" ? "O Google já confirmou seu email. Falta só o nome." : "Falta só confirmar o nome."}</p>
 
-      <div className="mt-6 flex items-center gap-3 rounded-xl border border-line bg-white p-4">
-        <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-mint-100 text-pine-900">
+      <div className="mt-6 flex items-center gap-3 rounded-md border border-line bg-white p-4">
+        <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-md bg-mint-100 text-pine-900">
           <Icon name="email" className="size-5" />
         </span>
         <div className="min-w-0 flex-1">

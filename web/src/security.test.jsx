@@ -346,10 +346,10 @@ describe("guarda de rota do perfil", () => {
   });
 });
 
-describe("Seus dados", () => {
+describe("Minha conta", () => {
   test("mostra os dados da conta e o que é guardado", () => {
     renderPage(<Account />, { auth: fakeAuth({ user: { ...fakeAuth().user, provider: "google", name: "Ana Souza", email: "ana@gmail.com" } }) });
-    expect(screen.getByRole("heading", { name: "Seus dados" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Minha conta" })).toBeInTheDocument();
     const account = screen.getByRole("region", { name: "Dados da conta" });
     expect(account).toHaveTextContent("Ana Souza");
     expect(account).toHaveTextContent("ana@gmail.com");
@@ -385,8 +385,8 @@ describe("Home refinada", () => {
     expect(await screen.findByText("Mercado")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hoje", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ontem", level: 3 })).toBeInTheDocument();
-    expect(screen.getByText("Total de entradas").closest("div")).toHaveTextContent("100,00");
-    expect(screen.getByText("Total de saídas").closest("div")).toHaveTextContent("30,00");
+    expect(screen.getByText("Total de receitas").closest("div")).toHaveTextContent("100,00");
+    expect(screen.getByText("Total de despesas").closest("div")).toHaveTextContent("30,00");
   });
 
   test("enquanto carrega mostra o esqueleto, e o saldo fica em traço", () => {
@@ -597,9 +597,9 @@ describe("connectionStep e dados guardados", () => {
     expect(connectionStep({ protocol: "http:", hostname: "192.168.1.20" })).toMatchObject({ state: "warn", label: "Conexão sem HTTPS" });
   });
 
-  test("a tela Seus dados lista também o identificador do Google e o método de entrada", () => {
+  test("a tela Minha conta lista também o identificador do Google e o método de entrada", () => {
     renderPage(<Account />);
     expect(screen.getByText("O identificador da sua conta Google")).toBeInTheDocument();
-    expect(screen.getByText("Como e quando você entrou")).toBeInTheDocument();
+    expect(screen.getByText("Método e data de acesso")).toBeInTheDocument();
   });
 });

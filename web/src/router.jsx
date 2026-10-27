@@ -10,6 +10,8 @@ import NewTransaction from "./pages/NewTransaction.jsx";
 import EditTransaction from "./pages/EditTransaction.jsx";
 import Welcome from "./pages/Welcome.jsx";
 import Account from "./pages/Account.jsx";
+import History from "./pages/History.jsx";
+import Analysis from "./pages/Analysis.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 
 export const routes = [
@@ -27,6 +29,8 @@ export const routes = [
               { path: "/transaction/:type", element: <NewTransaction /> },
               { path: "/transaction/:id/edit", element: <EditTransaction /> },
               { path: "/account", element: <Account /> },
+              { path: "/history", element: <History /> },
+              { path: "/analysis", element: <Analysis /> },
             ],
           },
           {

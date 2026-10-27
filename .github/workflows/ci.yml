@@ -15,12 +15,8 @@ concurrency:
 jobs:
   check:
     name: Lint, testes e build
-    runs-on: ubuntu-latest
-    services:
-      mongo:
-        image: mongo:8
-        ports:
-          - 27017:27017
+    # Versão fixa da imagem do runner (o Mongo é tratado no passo "Subir o Mongo").
+    runs-on: ubuntu-24.04
     env:
       TEST_DATABASE_URI: mongodb://localhost:27017/corewallet_test
     steps:
@@ -29,10 +25,23 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # O serviço do Mongo às vezes ainda não aceitou conexões quando o job começa;
-      # sem esperar, os testes da API falhavam com ECONNREFUSED.
-      - name: Esperar o Mongo
-        run: timeout 60 bash -c 'until (echo > /dev/tcp/127.0.0.1/27017) 2>/dev/null; do sleep 1; done'
+      # O Mongo sobe aqui, e não como "service", para dar para cair para outra versão: o Mongo 8 não
+      # inicia em máquinas do GitHub com kernel Linux 6.19+ (SERVER-121912) e isso varia de máquina
+      # para máquina. Tenta o 8 e, se ele não subir, usa o 7.0 (os testes só usam recursos comuns).
+      - name: Subir o Mongo
+        run: |
+          for image in mongo:8 mongo:7.0; do
+            docker rm -f mongo >/dev/null 2>&1 || true
+            docker run -d --name mongo -p 27017:27017 "$image" >/dev/null
+            for i in $(seq 1 30); do
+              # ping de verdade: a porta abre antes de o Mongo estar pronto, e um contêiner que saiu falha aqui
+              if docker exec mongo mongosh --quiet --eval "db.adminCommand('ping').ok" 2>/dev/null | grep -q 1; then echo "Mongo no ar: $image"; exit 0; fi
+              sleep 1
+            done
+            echo "$image não subiu. Log:"
+            docker logs mongo 2>&1 | tail -n 3
+          done
+          exit 1
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run lint
@@ -41,20 +50,31 @@ jobs:
 
   e2e:
     name: Testes de ponta a ponta
-    runs-on: ubuntu-latest
-    services:
-      mongo:
-        image: mongo:8
-        ports:
-          - 27017:27017
+    # Versão fixa da imagem do runner (o Mongo é tratado no passo "Subir o Mongo").
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Esperar o Mongo
-        run: timeout 60 bash -c 'until (echo > /dev/tcp/127.0.0.1/27017) 2>/dev/null; do sleep 1; done'
+      # O Mongo sobe aqui, e não como "service", para dar para cair para outra versão: o Mongo 8 não
+      # inicia em máquinas do GitHub com kernel Linux 6.19+ (SERVER-121912) e isso varia de máquina
+      # para máquina. Tenta o 8 e, se ele não subir, usa o 7.0 (os testes só usam recursos comuns).
+      - name: Subir o Mongo
+        run: |
+          for image in mongo:8 mongo:7.0; do
+            docker rm -f mongo >/dev/null 2>&1 || true
+            docker run -d --name mongo -p 27017:27017 "$image" >/dev/null
+            for i in $(seq 1 30); do
+              # ping de verdade: a porta abre antes de o Mongo estar pronto, e um contêiner que saiu falha aqui
+              if docker exec mongo mongosh --quiet --eval "db.adminCommand('ping').ok" 2>/dev/null | grep -q 1; then echo "Mongo no ar: $image"; exit 0; fi
+              sleep 1
+            done
+            echo "$image não subiu. Log:"
+            docker logs mongo 2>&1 | tail -n 3
+          done
+          exit 1
       - run: npm ci
       - name: Instalar o Chromium do Playwright
         run: npx playwright install --with-deps chromium
@@ -69,7 +89,8 @@ jobs:
 
   docker:
     name: Imagens Docker
-    runs-on: ubuntu-latest
+    # Versão fixa da imagem do runner (o Mongo é tratado no passo "Subir o Mongo").
+    runs-on: ubuntu-24.04
     needs: check
     steps:
       - uses: actions/checkout@v4

@@ -33,9 +33,14 @@ describe("aparelhos de teste: descrição", () => {
   test("o IP aparece só pela metade", () => {
     assert.equal(maskIp("189.12.34.56"), "189.12.•.•");
     assert.equal(maskIp("::ffff:10.0.0.7"), "10.0.•.•");
-    assert.match(maskIp("2804:14d:1:2::3"), /•$/);
     assert.ok(!maskIp("2804:14d:1:2::3").includes("2::3"));
     assert.equal(maskIp(""), "");
+    // Acesso do próprio computador não vira "::•".
+    assert.equal(maskIp("::1"), "deste computador");
+    assert.equal(maskIp("127.0.0.1"), "deste computador");
+    assert.equal(maskIp("::ffff:127.0.0.1"), "deste computador");
+    assert.equal(maskIp("::"), "");
+    assert.equal(maskIp("2804:14d:1:2::3"), "2804:14d:•");
   });
 });
 

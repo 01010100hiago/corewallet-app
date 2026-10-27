@@ -32,8 +32,8 @@ describe("Home: mês, resumo e gráfico", () => {
     renderPage(<Home />);
     expect(await screen.findByText("Mercado")).toBeInTheDocument();
     expect(getsMonths()).toEqual([current]);
-    expect(screen.getByText("Entradas do mês").closest("div")).toHaveTextContent("123,45");
-    expect(screen.getByText("Saídas do mês").closest("div")).toHaveTextContent("30,00");
+    expect(screen.getByText("Receitas do mês").closest("div")).toHaveTextContent("123,45");
+    expect(screen.getByText("Despesas do mês").closest("div")).toHaveTextContent("30,00");
     expect(screen.getByRole("button", { name: "Próximo mês" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Ir para o mês atual" })).toBeNull();
   });
@@ -87,23 +87,62 @@ describe("Home: mês, resumo e gráfico", () => {
       }),
     });
     renderPage(<Home />);
-    const chart = await screen.findByRole("region", { name: "Para onde foi o dinheiro" });
+    const chart = await screen.findByRole("region", { name: "Despesas por categoria" });
     const rows = within(chart).getAllByRole("listitem");
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent("Mercado");
+    expect(rows[0]).toHaveTextContent("Supermercado");
     expect(rows[0]).toHaveTextContent("75,00");
     expect(rows[0]).toHaveTextContent("75%");
     expect(rows[1]).toHaveTextContent("Lazer");
     expect(rows[1]).toHaveTextContent("25%");
     expect(within(chart).queryByText(/Salário/)).toBeNull();
+    // O total fica no meio do anel e o desenho é só reforço visual.
+    expect(chart).toHaveTextContent("100,00");
     expect(chart.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(chart.querySelectorAll("circle")).toHaveLength(3); // fundo + 2 fatias
+  });
+
+  test("gráfico: usa o nome das categorias da pessoa e junta as menores em 'Outras'", async () => {
+    const custom = { id: "a".repeat(24), type: "output", name: "Pets" };
+    const many = ["moradia", "mercado", "transporte", "contas", "saude", "educacao", "lazer", "outros"].map((category, i) => ({ type: "output", category, total: 8000 - i * 500 }));
+    vi.spyOn(api, "get").mockResolvedValue({
+      data: payload({
+        transactions: [tx("1", "output", 1, "x")],
+        categories: [custom],
+        month: month(current, { categories: [{ type: "output", category: custom.id, total: 9000 }, ...many] }),
+      }),
+    });
+    renderPage(<Home />);
+    const chart = await screen.findByRole("region", { name: "Despesas por categoria" });
+    expect(within(chart).getByText("Pets")).toBeInTheDocument();
+    // 9 categorias: as 6 maiores aparecem e as outras 3 viram uma linha só.
+    const rows = within(chart).getAllByRole("listitem");
+    expect(rows).toHaveLength(7);
+    expect(rows[6]).toHaveTextContent("Outras");
+    expect(rows[6]).toHaveTextContent("3 categorias");
+  });
+
+  test("gráfico: fatia minúscula aparece como <1%, não como 0%", async () => {
+    vi.spyOn(api, "get").mockResolvedValue({
+      data: payload({
+        transactions: [tx("1", "output", 1, "x")],
+        month: month(current, { categories: [{ type: "output", category: "moradia", total: 1000000 }, { type: "output", category: "lazer", total: 1 }] }),
+      }),
+    });
+    renderPage(<Home />);
+    const chart = await screen.findByRole("region", { name: "Despesas por categoria" });
+    const rows = within(chart).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("100%");
+    expect(rows[1]).toHaveTextContent("Lazer");
+    expect(rows[1]).toHaveTextContent("<1%");
+    expect(rows[1]).not.toHaveTextContent("0%");
   });
 
   test("sem saídas no mês não há gráfico", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: payload({ month: month(current, { totalIn: 100, categories: [{ type: "input", category: "salario", total: 100 }] }) }) });
     renderPage(<Home />);
     await screen.findByText(/Nenhum lançamento em/);
-    expect(screen.queryByRole("region", { name: "Para onde foi o dinheiro" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Despesas por categoria" })).toBeNull();
   });
 
   test("ao trocar de mês, os dados do mês antigo somem enquanto o novo carrega", async () => {
@@ -117,7 +156,7 @@ describe("Home: mês, resumo e gráfico", () => {
     await userEvent.click(screen.getByRole("button", { name: "Mês anterior" }));
     expect(screen.queryByText("do mês atual")).toBeNull();
     expect(screen.getByRole("status", { name: "Carregando lançamentos" })).toBeInTheDocument();
-    expect(screen.getByText("Entradas do mês").closest("div")).toHaveTextContent("—");
+    expect(screen.getByText("Receitas do mês").closest("div")).toHaveTextContent("—");
   });
 
   test("troca de mês com a resposta antiga atrasada não mistura os meses", async () => {
@@ -145,7 +184,7 @@ describe("Home: editar e excluir", () => {
     withOne();
     renderPage(<Home />);
     expect(await screen.findByText("Feira")).toBeInTheDocument();
-    expect(screen.getByText(/Mercado ·/)).toBeInTheDocument();
+    expect(screen.getByText(/Supermercado ·/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Editar Feira" })).toHaveAttribute("href", "/transaction/t1/edit");
   });
 
@@ -156,7 +195,7 @@ describe("Home: editar e excluir", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Excluir Feira" }));
     const group = screen.getByRole("group", { name: "Excluir Feira" });
     expect(group).toHaveTextContent(/45,90/);
-    expect(group).toHaveTextContent(/não dá para desfazer/);
+    expect(group).toHaveTextContent(/fica no histórico e dá para restaurar/);
     expect(del).not.toHaveBeenCalled();
 
     await userEvent.click(within(group).getByRole("button", { name: "Cancelar" }));
@@ -210,12 +249,12 @@ describe("formulário de lançamento: categoria", () => {
   test("a saída só oferece categorias de saída, a entrada só as de entrada", async () => {
     const out = renderPage(<NewTransaction />, { path: "/transaction/:type", route: "/transaction/output" });
     const opts = () => within(screen.getByLabelText("Categoria")).getAllByRole("option").map((o) => o.textContent);
-    expect(opts()).toContain("Mercado");
+    expect(opts()).toContain("Supermercado");
     expect(opts()).not.toContain("Salário");
     out.unmount();
     renderPage(<NewTransaction />, { path: "/transaction/:type", route: "/transaction/input" });
     expect(opts()).toContain("Salário");
-    expect(opts()).not.toContain("Mercado");
+    expect(opts()).not.toContain("Supermercado");
   });
 
   test("envia a categoria escolhida", async () => {
@@ -237,7 +276,7 @@ describe("EditTransaction", () => {
   test("carrega o lançamento, preenche o formulário e não deixa trocar o tipo", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: existing });
     renderPage(<EditTransaction />, route);
-    expect(await screen.findByRole("heading", { name: "Editar saída" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Editar despesa" })).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("/transactions/t1");
     expect(screen.getByLabelText("Valor (R$)")).toHaveValue("45,90");
     expect(screen.getByLabelText("Descrição")).toHaveValue("Feira");

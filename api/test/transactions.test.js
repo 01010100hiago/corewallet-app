@@ -7,6 +7,7 @@ import { connectDb, disconnectDb } from "../src/config/database.js";
 import User from "../src/models/User.js";
 import Transaction from "../src/models/Transaction.js";
 import RefreshSession from "../src/models/RefreshSession.js";
+import TransactionEvent from "../src/models/TransactionEvent.js";
 import { monthKeyOf } from "@corewallet/shared";
 import { testEnv, user, testDbUri, csrfOf } from "../support/helpers.js";
 
@@ -24,7 +25,7 @@ describe("lançamentos: categorias, edição, exclusão e filtro por mês", { sk
     await Promise.all([User.init(), Transaction.init(), RefreshSession.init()]);
   });
   beforeEach(async () => {
-    await Promise.all([User.deleteMany({}), Transaction.deleteMany({}), RefreshSession.deleteMany({})]);
+    await Promise.all([User.deleteMany({}), Transaction.deleteMany({}), RefreshSession.deleteMany({}), TransactionEvent.deleteMany({})]);
   });
   after(async () => {
     await mongoose.connection.dropDatabase();
@@ -215,7 +216,9 @@ describe("lançamentos: categorias, edição, exclusão e filtro por mês", { sk
       const { body: t } = await add(ana, { type: "output", value: "10", description: "Da Ana" }).expect(201);
       await bia.delete(`/api/transactions/${t.id}`).expect(404);
       await bia.delete("/api/transactions/lixo").expect(404);
-      assert.equal(await Transaction.countDocuments(), 1);
+      // A exclusão é suave, então contar documentos não prova nada: o que importa é nada ter sido marcado.
+      assert.equal(await Transaction.countDocuments({ deletedAt: { $ne: null } }), 0);
+      assert.equal(await TransactionEvent.countDocuments({ action: "deleted" }), 0);
     });
 
     test("exige login e o cabeçalho CSRF", async () => {
@@ -225,7 +228,8 @@ describe("lançamentos: categorias, edição, exclusão e filtro por mês", { sk
       const bare = request.agent(app);
       bare.jar.setCookies(agent.jar.getCookies({ domain: "127.0.0.1", path: "/api", secure: false, script: false }).map((c) => c.toString()));
       await bare.delete(`/api/transactions/${t.id}`).expect(403);
-      assert.equal(await Transaction.countDocuments(), 1);
+      assert.equal(await Transaction.countDocuments({ deletedAt: { $ne: null } }), 0);
+      assert.equal(await TransactionEvent.countDocuments({ action: "deleted" }), 0);
     });
   });
 
@@ -272,7 +276,7 @@ describe("lançamentos: categorias, edição, exclusão e filtro por mês", { sk
     test("mês sem lançamentos vem zerado, e sem o filtro o campo month é null", async () => {
       const { agent } = await loggedAgent();
       const res = (await agent.get("/api/transactions?month=2020-01").expect(200)).body;
-      assert.deepEqual(res.month, { key: "2020-01", totalIn: 0, totalOut: 0, count: 0, categories: [] });
+      assert.deepEqual(res.month, { key: "2020-01", totalIn: 0, totalOut: 0, count: 0, archivedCount: 0, categories: [] });
       assert.equal((await agent.get("/api/transactions")).body.month, null);
     });
 

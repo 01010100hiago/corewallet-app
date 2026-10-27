@@ -10,7 +10,7 @@ const FACTS = [
 
 export default function ProtectionDetails() {
   return (
-    <details className="group mt-8 rounded-xl border border-line bg-white p-4 text-sm">
+    <details className="group mt-8 rounded-md border border-line bg-white p-4 text-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-pine-900">
         <Icon name="escudo" className="size-5" />
         Como protegemos seus dados

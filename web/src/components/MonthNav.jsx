@@ -2,7 +2,7 @@ import { monthLabel } from "@corewallet/shared";
 import Icon from "./Icon.jsx";
 
 const arrow =
-  "grid size-11 place-items-center rounded-xl text-pine-900 transition hover:bg-mint-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+  "grid size-11 place-items-center rounded-md text-pine-900 transition hover:bg-mint-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
 
 // Troca de mês: anterior, próximo (não passa do mês atual) e atalho para voltar ao atual.
 export default function MonthNav({ month, current, onChange, previous, next }) {
@@ -16,7 +16,7 @@ export default function MonthNav({ month, current, onChange, previous, next }) {
           {monthLabel(month)}
         </h2>
         {month !== current && (
-          <button type="button" onClick={() => onChange(current)} className="rounded-lg px-2 py-0.5 text-sm font-medium text-pine-700 underline underline-offset-4 hover:bg-mint-100">
+          <button type="button" onClick={() => onChange(current)} className="rounded-md px-2 py-0.5 text-sm font-medium text-pine-700 underline underline-offset-4 hover:bg-mint-100">
             Ir para o mês atual
           </button>
         )}

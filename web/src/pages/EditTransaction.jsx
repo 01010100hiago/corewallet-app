@@ -8,6 +8,7 @@ import TransactionForm from "../components/TransactionForm.jsx";
 import { TYPES } from "../lib/transactionTypes.js";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { centsToInput } from "../lib/money.js";
+import { useCategories, createCategory } from "../lib/useCategories.js";
 
 export default function EditTransaction() {
   const { id } = useParams();
@@ -16,6 +17,7 @@ export default function EditTransaction() {
   // { id, transaction } | { id, error, notFound }: o id diz a qual lançamento a resposta pertence.
   const [loaded, setLoaded] = useState(null);
   const [apiError, setApiError] = useState("");
+  const categories = useCategories();
   const current = loaded?.id === id ? loaded : null;
   usePageTitle(current?.transaction ? TYPES[current.transaction.type].editTitle : "Editar lançamento");
 
@@ -60,7 +62,7 @@ export default function EditTransaction() {
   if (current.error) {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4">
-        <Link to="/" className="inline-flex items-center gap-2 rounded-lg py-1 text-sm font-medium text-pine-900 hover:text-pine-700">
+        <Link to="/" className="inline-flex items-center gap-2 rounded-md py-1 text-sm font-medium text-pine-900 hover:text-pine-700">
           <Icon name="voltar" className="size-5" />
           Voltar
         </Link>
@@ -78,6 +80,8 @@ export default function EditTransaction() {
       initial={{ value: centsToInput(t.value), description: t.description, category: t.category }}
       onSubmit={onSubmit}
       apiError={apiError}
+      customCategories={categories.list}
+      onCreateCategory={createCategory}
     />
   );
 }

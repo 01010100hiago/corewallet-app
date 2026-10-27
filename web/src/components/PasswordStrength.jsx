@@ -12,7 +12,7 @@ export default function PasswordStrength({ password }) {
   const { checks, score, label } = evaluatePassword(password);
 
   return (
-    <div id={PASSWORD_RULES_ID} className="flex flex-col gap-2.5 rounded-xl bg-mint-100/60 p-3.5">
+    <div id={PASSWORD_RULES_ID} className="flex flex-col gap-2.5 rounded-md bg-mint-100/60 p-3.5">
       <div className="flex items-center gap-3">
         <div
           role="progressbar"
@@ -24,7 +24,7 @@ export default function PasswordStrength({ password }) {
           className="flex flex-1 gap-1.5"
         >
           {[1, 2, 3, 4].map((n) => (
-            <span key={n} className={`h-1.5 flex-1 rounded-full transition-colors ${n <= score ? SEGMENT_COLORS[score] : "bg-line"}`} />
+            <span key={n} className={`h-1.5 flex-1 rounded-sm transition-colors ${n <= score ? SEGMENT_COLORS[score] : "bg-line"}`} />
           ))}
         </div>
         <span aria-hidden="true" className="w-16 text-right text-sm font-medium text-ink">

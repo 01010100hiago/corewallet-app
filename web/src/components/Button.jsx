@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import Icon from "./Icon.jsx";
 
 const base =
-  "[--icon-accent:currentColor] inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60";
+  "[--icon-accent:currentColor] inline-flex h-12 w-full items-center justify-center gap-2 rounded-md px-5 text-base font-semibold transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60";
 
 const variants = {
   primary: "bg-coral-500 text-coral-950 hover:bg-coral-400",

@@ -56,13 +56,13 @@ export default function Signin() {
       <p className="mt-1 text-muted">Entre para ver seu saldo.</p>
 
       {location.state?.registered && (
-        <p role="status" className="mt-5 flex items-center gap-2 rounded-xl bg-mint-100 p-3 text-sm text-pine-900">
+        <p role="status" className="mt-5 flex items-center gap-2 rounded-md bg-mint-100 p-3 text-sm text-pine-900">
           <Icon name="ok" className="size-5 shrink-0" />
           Conta criada! Entre para continuar.
         </p>
       )}
       {notice === "expired" && !location.state?.registered && (
-        <p role="status" className="mt-5 flex items-center gap-2 rounded-xl bg-coral-100 p-3 text-sm text-coral-800 [--icon-accent:currentColor]">
+        <p role="status" className="mt-5 flex items-center gap-2 rounded-md bg-coral-100 p-3 text-sm text-coral-800 [--icon-accent:currentColor]">
           <Icon name="relogio" className="size-5 shrink-0" />
           Sua sessão venceu. Entre de novo para continuar. O que você estava registrando pode não ter sido salvo.
         </p>

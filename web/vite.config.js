@@ -11,6 +11,11 @@ export default defineConfig({
       "/api": "http://localhost:4000",
     },
   },
+  build: {
+    // ~560 kB (177 kB com gzip): React, roteador, Zod e Axios. As telas são pequenas,
+    // então dividir por rota quase não reduz nada; o limite sobe para não gerar ruído.
+    chunkSizeWarningLimit: 650,
+  },
   // O preview (usado nos testes de ponta a ponta) encaminha /api como o nginx faz.
   preview: {
     proxy: {

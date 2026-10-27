@@ -6,10 +6,10 @@ import { inBrasilia } from "../lib/brasilia.js";
 
 const PROVIDERS = { google: "Google", password: "Email e senha" };
 
-// "Seus dados": o que a conta tem, método de entrada e o que o sistema guarda.
+// "Minha conta": o que a conta tem, método de entrada e o que o sistema guarda.
 export default function Account() {
   const { user } = useAuth();
-  usePageTitle("Seus dados");
+  usePageTitle("Minha conta");
 
   const rows = [
     ["Nome", user.name],
@@ -20,9 +20,9 @@ export default function Account() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-semibold tracking-tight text-pine-900">Seus dados</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-pine-900">Minha conta</h1>
 
-      <section aria-label="Dados da conta" className="rounded-3xl border border-line bg-white p-6">
+      <section aria-label="Dados da conta" className="rounded-lg border border-line bg-white p-6">
         <dl className="flex flex-col divide-y divide-line">
           {rows.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
@@ -35,7 +35,7 @@ export default function Account() {
 
       <Devices />
 
-      <section aria-label="O que guardamos" className="rounded-3xl border border-line bg-white p-6">
+      <section aria-label="O que guardamos" className="rounded-lg border border-line bg-white p-6">
         <DataWeKeep />
         <p className="mt-6 border-t border-line pt-4 text-sm text-muted">
           Exportar os seus dados e excluir a conta ainda não estão disponíveis nesta versão.

@@ -241,7 +241,7 @@ describe("API com banco", { skip: !uri && "defina TEST_DATABASE_URI para rodar" 
     test("saldo vazio é zero", async () => {
       const agent = await loggedAgent();
       const res = await agent.get("/api/transactions").expect(200);
-      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, month: null, transactions: [] });
+      assert.deepEqual(res.body, { balance: 0, totalIn: 0, totalOut: 0, truncated: false, month: null, categories: [], transactions: [] });
     });
 
     test("lista cortada pelo limite continua com o saldo de todos os lançamentos", async () => {

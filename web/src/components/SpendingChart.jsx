@@ -1,40 +1,105 @@
+import { Link } from "react-router-dom";
 import { categoryLabel, formatCents } from "@corewallet/shared";
-import Icon from "./Icon.jsx";
 
-// "Para onde foi o dinheiro": saídas do mês por categoria, da maior para a menor.
-// É uma lista (texto lido por leitor de tela); as barras são só reforço visual.
-// Largura por atributo do SVG, não por style, para não depender de CSP.
-export default function SpendingChart({ categories }) {
+// Cores das fatias, em ordem. As classes aparecem por extenso para o Tailwind enxergá-las.
+const PALETTE = [
+  { stroke: "stroke-coral-500", dot: "bg-coral-500" },
+  { stroke: "stroke-pine-700", dot: "bg-pine-700" },
+  { stroke: "stroke-bronze-500", dot: "bg-bronze-500" },
+  { stroke: "stroke-pine-900", dot: "bg-pine-900" },
+  { stroke: "stroke-mint-300", dot: "bg-mint-300" },
+  { stroke: "stroke-clay-600", dot: "bg-clay-600" },
+];
+const OTHERS = { stroke: "stroke-sage-300", dot: "bg-sage-300" };
+const MAX_SLICES = 6;
+const GAP = 1.4; // espaço entre fatias, em % da volta
+
+// O total no meio do anel nunca quebra: a letra diminui conforme o número cresce. Com folga para
+// fontes mais largas (o Linux do CI desenha o mesmo texto ~5% maior que o macOS).
+const centerSize = (text) => (text.length <= 9 ? "text-lg" : text.length <= 11 ? "text-base" : text.length <= 12 ? "text-sm" : text.length <= 14 ? "text-xs" : "text-[0.6rem]");
+
+// Resumo dos gastos do mês: anel com o total no meio e legenda com valor e parte de cada
+// categoria. Mais que MAX_SLICES categorias: as menores viram "Outras". O anel é só reforço
+// visual (aria-hidden); a legenda é o texto que o leitor de tela lê. Medidas por atributo do
+// SVG, não por style, para não depender da CSP.
+export default function SpendingChart({ categories, custom = [] }) {
   const rows = categories.filter((c) => c.type === "output");
   const total = rows.reduce((n, r) => n + r.total, 0);
   if (total === 0) return null;
-  const max = rows[0].total;
+
+  const named = rows.map((r) => ({ key: r.category, label: categoryLabel("output", r.category, custom), total: r.total }));
+  const shown = named.length > MAX_SLICES + 1 ? named.slice(0, MAX_SLICES) : named;
+  const rest = named.slice(shown.length);
+  const slices = [...shown, ...(rest.length ? [{ key: "outras", label: "Outras", total: rest.reduce((n, r) => n + r.total, 0), others: rest.length }] : [])].map((s, i) => ({
+    ...s,
+    color: s.others ? OTHERS : PALETTE[i % PALETTE.length],
+    pct: (s.total / total) * 100,
+  }));
+
+  let offset = 0;
+  const arcs = slices.map((s) => {
+    const arc = { ...s, dash: Math.max(s.pct - (slices.length > 1 ? GAP : 0), 0.4), offset };
+    offset += s.pct;
+    return arc;
+  });
+  const totalText = formatCents(total);
 
   return (
-    <section aria-labelledby="chart-title" className="rounded-3xl border border-line bg-white p-5 shadow-sm sm:p-6">
-      <h2 id="chart-title" className="flex items-center gap-2 text-lg font-semibold text-pine-900">
-        <Icon name="grafico" className="size-6" />
-        Para onde foi o dinheiro
-      </h2>
-      <ul className="mt-4 flex flex-col gap-3.5">
-        {rows.map((row, i) => {
-          const share = Math.round((row.total / total) * 100);
-          return (
-            <li key={row.category}>
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="font-medium">{categoryLabel("output", row.category)}</span>
-                <span className="tabular text-muted">
-                  <span className="font-semibold text-ink">{formatCents(row.total)}</span> · {share}%
-                </span>
-              </div>
-              <svg aria-hidden="true" className="mt-1.5 h-2.5 w-full" preserveAspectRatio="none">
-                <rect width="100%" height="100%" rx="5" className="fill-mint-100" />
-                <rect width={`${Math.max((row.total / max) * 100, 2)}%`} height="100%" rx="5" className={i === 0 ? "fill-coral-500" : "fill-pine-700"} />
-              </svg>
+    <section aria-labelledby="spending-title" className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="spending-title" className="text-lg font-semibold text-pine-900">
+          Despesas por categoria
+        </h2>
+        <Link to="/analysis" className="text-sm font-medium text-pine-900 underline underline-offset-4 hover:text-pine-700">
+          Ver análise financeira
+        </Link>
+      </div>
+
+      <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <div className="relative size-44 shrink-0">
+          <svg viewBox="0 0 100 100" aria-hidden="true" className="size-full">
+            <circle cx="50" cy="50" r="38" fill="none" strokeWidth="13" className="stroke-mint-100" />
+            {arcs.map((a) => (
+              <circle
+                key={a.key}
+                cx="50"
+                cy="50"
+                r="38"
+                fill="none"
+                strokeWidth="13"
+                strokeLinecap="butt"
+                pathLength="100"
+                strokeDasharray={`${a.dash} ${100 - a.dash}`}
+                strokeDashoffset={-a.offset}
+                transform="rotate(-90 50 50)"
+                className={a.color.stroke}
+              />
+            ))}
+          </svg>
+          <div className="absolute inset-0 grid place-content-center text-center">
+            <span className="text-xs text-muted">Total</span>
+            <span data-testid="chart-total" className={`tabular whitespace-nowrap font-semibold text-pine-900 ${centerSize(totalText)}`}>
+              {totalText}
+            </span>
+          </div>
+        </div>
+
+        <ul className="flex w-full min-w-0 flex-col gap-2.5">
+          {slices.map((s) => (
+            <li key={s.key} className="flex items-center gap-3 text-sm">
+              <span aria-hidden="true" className={`size-3 shrink-0 rounded-full ${s.color.dot}`} />
+              <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]">
+                {s.label}
+                {s.others && <span className="font-normal text-muted"> ({s.others} categorias)</span>}
+              </span>
+              <span className="tabular shrink-0 text-right">
+                <span className="font-semibold">{formatCents(s.total)}</span>
+                <span className="ml-2 text-muted">{s.pct < 0.5 ? "<1%" : `${Math.round(s.pct)}%`}</span>
+              </span>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

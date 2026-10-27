@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, afterEach } from "vitest";
+import { describe, expect, test, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -90,7 +90,9 @@ describe("SessionChip", () => {
     renderChip();
     const button = screen.getByRole("button", { name: /Sessão protegida/ });
     await userEvent.click(button);
-    await userEvent.tab(); // link Seus dados
+    await userEvent.tab(); // link Análise financeira
+    await userEvent.tab(); // link Histórico
+    await userEvent.tab(); // link Minha conta
     await userEvent.tab(); // botão Sair
     expect(screen.getByRole("group", { name: "Detalhes da sessão" })).toBeInTheDocument();
     await userEvent.tab(); // sai do painel
@@ -154,6 +156,13 @@ describe("AuthProvider", () => {
 });
 
 describe("AuthProvider: erros e relógio", () => {
+  // A sessão de teste vence em 27/10/2026 15:47 UTC. Com o relógio real, o teste só passava antes
+  // dessa hora e passou a falhar depois: o relógio (só a data) fica preso no horário da sessão.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+
   function Probe() {
     const { status, notice, logout, expire } = useAuth();
     return (

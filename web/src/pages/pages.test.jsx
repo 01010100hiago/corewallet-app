@@ -109,8 +109,8 @@ describe("Home", () => {
     expect(screen.getByText("Almoço")).toBeInTheDocument();
     expect(screen.getByTestId("balance").textContent).toMatch(/974,50/);
     expect(screen.getByText("Olá, Maria Silva")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Nova entrada/ })).toHaveAttribute("href", "/transaction/input");
-    expect(screen.getByRole("link", { name: /Nova saída/ })).toHaveAttribute("href", "/transaction/output");
+    expect(screen.getByRole("link", { name: /Nova receita/ })).toHaveAttribute("href", "/transaction/input");
+    expect(screen.getByRole("link", { name: /Nova despesa/ })).toHaveAttribute("href", "/transaction/output");
   });
 
   test("avisa que a lista foi cortada, e o saldo vem da API (não da soma da lista)", async () => {
@@ -123,7 +123,7 @@ describe("Home", () => {
   test("mostra aviso quando não há lançamentos", async () => {
     vi.spyOn(api, "get").mockResolvedValue({ data: { transactions: [], balance: 0, truncated: false } });
     renderPage(<Home />);
-    expect(await screen.findByText(/Ainda não há entradas nem saídas/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nenhum lançamento registrado/)).toBeInTheDocument();
   });
 
   test("mostra o erro quando a API cai", async () => {
@@ -163,7 +163,7 @@ describe("NewTransaction", () => {
   test("envia o valor como digitado, com o tipo da URL, e volta para a home", async () => {
     const post = vi.spyOn(api, "post").mockResolvedValue({ data: {} });
     renderPage(<NewTransaction />, { path: "/transaction/:type", route: "/transaction/output" });
-    expect(screen.getByRole("heading", { name: "Nova saída" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Nova despesa" })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Valor (R$)"), "19,90");
     await userEvent.type(screen.getByLabelText("Descrição"), "  Mercado ");
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
@@ -188,6 +188,6 @@ describe("NewTransaction", () => {
     await userEvent.type(screen.getByLabelText("Descrição"), "Teste");
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
     expect(await screen.findByText("Erro interno")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Nova entrada" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Nova receita" })).toBeInTheDocument();
   });
 });

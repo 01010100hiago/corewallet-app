@@ -6,13 +6,13 @@ const KEPT = [
   { icon: "email", title: "Seu email", text: "Para identificar a sua conta. Nunca é mostrado a outras pessoas." },
   { icon: "senha", title: "Uma versão embaralhada da senha", text: "Só para quem criou conta com senha. Não dá para voltar ao original." },
   { icon: "chave", title: "O identificador da sua conta Google", text: "Só para quem entra com o Google, para reconhecer a mesma conta no próximo acesso." },
-  { icon: "relogio", title: "Como e quando você entrou", text: "O método de entrada (Google ou senha), se o email foi verificado e a data de criação da conta." },
+  { icon: "relogio", title: "Método e data de acesso", text: "O método de entrada (Google ou senha), se o email foi verificado e a data de criação da conta." },
   {
     icon: "computador",
-    title: "Os aparelhos com sessão aberta",
+    title: "Os dispositivos com sessão aberta",
     text: "Navegador e sistema, o começo do IP e o último uso. Some quando a sessão acaba (no máximo 30 dias) ou quando você a encerra.",
   },
-  { icon: "atividade", title: "Seus lançamentos", text: "Valor, descrição, tipo e data de cada entrada e saída que você registra." },
+  { icon: "atividade", title: "Seus lançamentos", text: "Valor, descrição, tipo e data de cada receita e despesa que você registra." },
 ];
 
 const NOT_KEPT = ["Sua senha em texto", "Dados de cartão ou de banco", "Localização, telefone ou documentos", "Sua senha do Google (ela nunca chega até nós)"];

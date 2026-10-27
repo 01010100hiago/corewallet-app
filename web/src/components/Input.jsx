@@ -19,7 +19,7 @@ export default function Input({ label, name, register, error, type = "text", hin
           type={type}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={describedBy}
-          className={`h-12 w-full rounded-xl border bg-white text-base text-ink transition placeholder:text-muted hover:border-pine-700/60 focus:border-pine-700 focus:outline-2 focus:outline-offset-0 focus:outline-pine-700/30 ${
+          className={`h-12 w-full rounded-md border bg-white text-base text-ink transition placeholder:text-muted hover:border-pine-700/60 focus:border-pine-700 focus:outline-2 focus:outline-offset-0 focus:outline-pine-700/30 ${
             prefix ? "pl-11" : "pl-3.5"
           } ${right ? "pr-12" : "pr-3.5"} ${error ? "border-negative" : "border-line"}`}
           {...register(name)}
