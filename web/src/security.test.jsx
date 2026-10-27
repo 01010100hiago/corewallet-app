@@ -355,9 +355,12 @@ describe("Minha conta", () => {
     expect(account).toHaveTextContent("ana@gmail.com");
     expect(account).toHaveTextContent("Google");
     expect(account).toHaveTextContent("25/10/2026");
-    expect(screen.getByText("O que guardamos")).toBeInTheDocument();
+    // O resumo do que é guardado fica recolhido: a conta mostra o essencial, e quem quer detalhes abre.
+    const details = screen.getByText("O que guardamos sobre você").closest("details");
+    expect(details).not.toHaveAttribute("open");
     expect(screen.getByText("O que não guardamos")).toBeInTheDocument();
     expect(screen.getByText(/ainda não estão disponíveis/)).toBeInTheDocument();
+    expect(screen.getByText("Minha conta", { selector: "h1" })).toBeInTheDocument();
   });
 });
 
@@ -599,7 +602,8 @@ describe("connectionStep e dados guardados", () => {
 
   test("a tela Minha conta lista também o identificador do Google e o método de entrada", () => {
     renderPage(<Account />);
-    expect(screen.getByText("O identificador da sua conta Google")).toBeInTheDocument();
-    expect(screen.getByText("Método e data de acesso")).toBeInTheDocument();
+    expect(screen.getByText("ID da conta Google.")).toBeInTheDocument();
+    expect(screen.getByText("Método e data de acesso.")).toBeInTheDocument();
+    expect(screen.getByText("Histórico de alterações.")).toBeInTheDocument();
   });
 });

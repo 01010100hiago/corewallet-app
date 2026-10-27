@@ -11,6 +11,51 @@ navegador ──HTTPS──▶ Cloudflare ──túnel──▶ cloudflared ─�
                                                               └─ /api   → API (Express) ──▶ Mongo
 ```
 
+## No ar no lab (situação atual)
+
+Publicado em **https://carteira.exemplo.com**, só com login por senha (Google e captcha desligados
+até as chaves reais existirem).
+
+| O quê | Onde |
+|---|---|
+| Projeto no servidor | `/srv/corewallet/` (compose do lab na raiz, código do GitHub em `app/`) |
+| Compose do lab | [`deploy/lab/docker-compose.yml`](../deploy/lab/docker-compose.yml) (a cópia do servidor é igual) |
+| Contêineres | `corewallet-mongo` e `corewallet-api` (só rede interna) e `corewallet-web` (também na rede `edge`) |
+| Segredos | `/srv/corewallet/.env` (permissão 600, nunca no Git) |
+| Túnel | linha `carteira.exemplo.com -> http://corewallet-web:8080` em `/srv/lab/infra/cloudflared/config.yml` (o DNS já é coberto pelo wildcard) |
+| Porta no servidor | só `127.0.0.1:5191`, para conferir por lá; nada é aberto para a rede |
+| Banco | volume `corewallet_dados-mongo`; sem porta publicada |
+
+Pontos que importam e que foram verificados pela internet:
+
+- **`TRUST_PROXY=2`**: o caminho é navegador, Cloudflare, cloudflared, nginx (web) e API. Com 2 saltos
+  confiáveis a API enxerga o IP da pessoa e o limite de tentativas conta por pessoa; com 1, todo mundo teria
+  o IP do cloudflared e dividiria o mesmo limite.
+- **`COOKIE_SECURE=true`**: os cookies saem `Secure`, e a sessão só existe por HTTPS.
+- **Mongo 8.0 no Debian 13 (kernel 6.12)**: funciona. Veja o aviso sobre kernel 6.19+ mais abaixo.
+
+**Atualizar** (sempre no servidor):
+
+```bash
+cd /srv/corewallet
+git -C app pull --ff-only
+docker compose up -d --build        # só recria o que mudou
+curl -s http://127.0.0.1:5191/api/health
+```
+
+**Backup do banco** (cópia compactada com a data em `backups/`, mantém as 14 mais recentes):
+
+```bash
+/srv/corewallet/backup.sh
+```
+
+O backup foi testado restaurando um dado de marcação. Ele **não roda sozinho**: para agendar, uma linha no
+`crontab -e` do `usuario`, por exemplo `30 3 * * * /srv/corewallet/backup.sh`.
+
+**Ligar Google e captcha** quando as chaves existirem: ponha `GOOGLE_CLIENT_ID`, `TURNSTILE_SITE_KEY` e
+`TURNSTILE_SECRET_KEY` no `.env` do servidor, confira no painel do Google e da Cloudflare que
+`https://carteira.exemplo.com` está nas origens autorizadas, e rode `docker compose up -d`.
+
 ## 1. Antes de começar (o que só você cria)
 
 | O quê | Onde | Para quê |

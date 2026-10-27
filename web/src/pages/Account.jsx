@@ -1,6 +1,7 @@
 import { useAuth } from "../context/authContext.js";
 import DataWeKeep from "../components/DataWeKeep.jsx";
 import Devices from "../components/Devices.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { inBrasilia } from "../lib/brasilia.js";
 
@@ -20,9 +21,9 @@ export default function Account() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-semibold tracking-tight text-pine-900">Minha conta</h1>
+      <PageHeader title="Minha conta" subtitle={user.email} />
 
-      <section aria-label="Dados da conta" className="rounded-lg border border-line bg-white p-6">
+      <section aria-label="Dados da conta" className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
         <dl className="flex flex-col divide-y divide-line">
           {rows.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
@@ -35,11 +36,8 @@ export default function Account() {
 
       <Devices />
 
-      <section aria-label="O que guardamos" className="rounded-lg border border-line bg-white p-6">
+      <section aria-label="O que guardamos" className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
         <DataWeKeep />
-        <p className="mt-6 border-t border-line pt-4 text-sm text-muted">
-          Exportar os seus dados e excluir a conta ainda não estão disponíveis nesta versão.
-        </p>
       </section>
     </div>
   );

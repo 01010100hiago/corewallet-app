@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { transactionSchema, transactionUpdateSchema, listQuerySchema } from "@corewallet/shared";
+import { transactionSchema, transactionUpdateSchema, listQuerySchema, searchQuerySchema } from "@corewallet/shared";
 import { validate, validateQuery } from "../middlewares/validate.js";
 import { transactionController } from "../controllers/transactionController.js";
 
@@ -9,7 +9,8 @@ export function createTransactionRouter(authMiddleware) {
   router.use(authMiddleware);
   router.get("/", validateQuery(listQuerySchema), transactionController.list);
   router.post("/", validate(transactionSchema), transactionController.create);
-  // "activity" vem antes de "/:id", senão seria lido como um id.
+  // "search" e "activity" vêm antes de "/:id", senão seriam lidos como um id.
+  router.get("/search", validateQuery(searchQuerySchema), transactionController.search);
   router.get("/activity", transactionController.activity);
   router.get("/:id", transactionController.get);
   router.get("/:id/history", transactionController.history);

@@ -12,6 +12,7 @@ export const DEFAULT_LIMITS = {
   signinAccount: { windowMs: 15 * MIN, limit: 8 },
   google: { windowMs: 15 * MIN, limit: 30 },
   refresh: { windowMs: 15 * MIN, limit: 60 },
+  challenge: { windowMs: 15 * MIN, limit: 60 },
 };
 
 const passthrough = (req, res, next) => next();
@@ -31,7 +32,7 @@ function make(options, extra = {}) {
 // limits === false desliga tudo (usado só nos testes).
 export function createLimiters(limits = DEFAULT_LIMITS) {
   if (limits === false) {
-    return Object.fromEntries(["general", "signup", "signin", "signinAccount", "google", "refresh"].map((k) => [k, passthrough]));
+    return Object.fromEntries(["general", "signup", "signin", "signinAccount", "google", "refresh", "challenge"].map((k) => [k, passthrough]));
   }
   const l = { ...DEFAULT_LIMITS, ...limits };
   const emailKey = (req) => `${ipKeyGenerator(req.ip)}|${String(req.body?.email ?? "").toLowerCase().slice(0, 254)}`;
@@ -44,5 +45,6 @@ export function createLimiters(limits = DEFAULT_LIMITS) {
     signinAccount: make(l.signinAccount, { skipSuccessfulRequests: true, keyGenerator: emailKey }),
     google: make(l.google),
     refresh: make(l.refresh),
+    challenge: make(l.challenge),
   };
 }

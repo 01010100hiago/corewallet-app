@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
-import { formatCents, isMonthKey, monthKeyOf, monthLabel, shiftMonth } from "@corewallet/shared";
+import { isMonthKey, monthKeyOf, monthLabel, shiftMonth } from "@corewallet/shared";
 import { useAuth } from "../context/authContext.js";
 import { api, getErrorMessage } from "../lib/api.js";
 import Icon from "../components/Icon.jsx";
@@ -12,11 +12,14 @@ import SpendingChart from "../components/SpendingChart.jsx";
 import TransactionRow from "../components/TransactionRow.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import { dayLabel } from "../lib/days.js";
+import { moneyText } from "../lib/format.js";
+import { usePrivacy } from "../context/privacyContext.js";
+import Money from "../components/Money.jsx";
 
-function groupByDay(transactions) {
+function groupByDay(transactions, today) {
   const groups = [];
   for (const t of transactions) {
-    const label = dayLabel(t.createdAt);
+    const label = dayLabel(t.createdAt, today);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.items.push(t);
     else groups.push({ label, items: [t] });
@@ -25,13 +28,16 @@ function groupByDay(transactions) {
 }
 
 export default function Home() {
-  const { user, expire } = useAuth();
+  const { user, expire, now } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const listHeadingRef = useRef(null);
   usePageTitle("Início");
   const [params, setParams] = useSearchParams();
-  const current = monthKeyOf(new Date());
+  // "Agora" é a hora do servidor (corrigida em AuthProvider), nunca a do celular ou do navegador:
+  // um relógio errado no aparelho não pode mudar o mês aberto nem o "Hoje" e o "Ontem".
+  const serverNow = now();
+  const current = monthKeyOf(new Date(serverNow));
   // O mês fica na URL (?mes=2026-10): dá para voltar, recarregar e compartilhar.
   const requested = params.get("mes");
   const month = isMonthKey(requested) && requested <= current ? requested : current;
@@ -61,13 +67,10 @@ export default function Home() {
     };
   }, [month, reload, expire]);
 
-  const changeMonth = useCallback(
-    (next) => {
-      setNotice(null);
-      setParams(next === current ? {} : { mes: next }, { replace: false });
-    },
-    [current, setParams]
-  );
+  function changeMonth(next) {
+    setNotice(null);
+    setParams(next === current ? {} : { mes: next }, { replace: false });
+  }
 
   async function deleteTransaction(t) {
     try {
@@ -123,7 +126,8 @@ export default function Home() {
   const error = ready ? (result.error ?? "") : "";
   const data = ready ? (result.data ?? null) : null;
   const balance = data?.balance ?? null;
-  const balanceText = balance === null ? "—" : formatCents(balance);
+  const { hidden } = usePrivacy();
+  const balanceText = balance === null ? "—" : moneyText(balance, hidden);
   const transactions = data?.transactions ?? [];
   const summary = data?.month ?? null;
   const customCategories = data?.categories ?? [];
@@ -139,7 +143,7 @@ export default function Home() {
           balanceText.length > 12 ? "text-3xl sm:text-5xl" : "text-4xl sm:text-5xl"
         } ${balance !== null && balance < 0 ? "text-coral-400" : ""}`}
       >
-        {balanceText}
+        {balance === null ? "—" : <Money cents={balance} />}
       </p>
       <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
         <Stat label="Total de receitas" value={data?.totalIn} icon="entrada" />
@@ -157,7 +161,7 @@ export default function Home() {
     <div className="flex flex-col gap-5">
       {heroNode}
 
-      <section aria-label="Novo lançamento" className="relative z-10 -mt-12 grid gap-3 rounded-lg border border-line bg-white p-3 shadow-md sm:grid-cols-2">
+      <section aria-label="Novo lançamento" className="relative z-10 grid gap-3 rounded-lg border border-line bg-white p-3 shadow-md sm:grid-cols-2">
         <LinkButton to="/transaction/input" icon="mais" variant="soft">
           Nova receita
         </LinkButton>
@@ -220,7 +224,7 @@ export default function Home() {
           !error && <EmptyState month={month} summary={Boolean(summary)} />
         ) : (
           <>
-            {groupByDay(transactions).map((group) => (
+            {groupByDay(transactions, serverNow).map((group) => (
               <div key={group.label}>
                 <h3 className="bg-canvas px-5 py-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.label}</h3>
                 <ul className="divide-y divide-line">
@@ -249,7 +253,7 @@ function Stat({ label, value, icon }) {
       <Icon name={icon} className="size-6 shrink-0 text-mint-300" />
       <div className="min-w-0">
         <dt className="text-mint-300">{label}</dt>
-        <dd className="tabular font-semibold [overflow-wrap:anywhere]">{typeof value === "number" ? formatCents(value) : "—"}</dd>
+        <dd className="tabular font-semibold [overflow-wrap:anywhere]">{typeof value === "number" ? <Money cents={value} /> : "—"}</dd>
       </div>
     </div>
   );
@@ -276,7 +280,7 @@ function MonthStat({ label, value, className }) {
   return (
     <div className="rounded-lg bg-canvas px-4 py-3">
       <dt className="text-muted">{label}</dt>
-      <dd className={`tabular font-semibold [overflow-wrap:anywhere] ${className}`}>{typeof value === "number" ? formatCents(value) : "—"}</dd>
+      <dd className={`tabular font-semibold [overflow-wrap:anywhere] ${className}`}>{typeof value === "number" ? <Money cents={value} /> : "—"}</dd>
     </div>
   );
 }

@@ -38,7 +38,9 @@ export default defineConfig({
         // Muitas contas do mesmo IP: o limite de tentativas (testado na API) fica desligado aqui.
         RATE_LIMITS: "off",
         NODE_ENV: "test",
-        // Sem captcha nem Google: o login por senha é o que estes testes exercitam.
+        // Sem Turnstile nem Google. A verificação automática própria fica LIGADA (é a do lab), só com
+        // dificuldade baixa para os testes não esperarem; a dificuldade real é medida à parte.
+        POW_MAX_NUMBER: "2000",
         TURNSTILE_SITE_KEY: "",
         TURNSTILE_SECRET_KEY: "",
         GOOGLE_CLIENT_ID: "",

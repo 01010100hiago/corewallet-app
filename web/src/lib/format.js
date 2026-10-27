@@ -36,4 +36,10 @@ export function niceMax(value) {
   return step * pow;
 }
 
+export const MASKED_MONEY = "R$ ••••";
+
+// Mesmos textos, mas com o modo "esconder valores" aplicado (para quando o valor entra em uma frase).
+export const moneyText = (cents, hidden) => (hidden ? MASKED_MONEY : formatCents(cents));
+export const compactText = (cents, hidden) => (hidden ? "•••" : formatCompact(cents));
+
 export { formatCents };

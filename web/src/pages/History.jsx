@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/authContext.js";
 import { api, getErrorMessage } from "../lib/api.js";
 import { inBrasilia } from "../lib/brasilia.js";
-import { categoryLabel, formatCents } from "@corewallet/shared";
+import { categoryLabel } from "@corewallet/shared";
+import Money from "../components/Money.jsx";
+import { usePrivacy } from "../context/privacyContext.js";
 import { ACTION_LABEL, describeChange, describeSnapshot } from "../lib/historyText.js";
 import { useCategories } from "../lib/useCategories.js";
 import { usePageTitle } from "../lib/usePageTitle.js";
@@ -23,6 +25,7 @@ const BADGE = {
 // da lista e do saldo, mas ele continua aqui, e dá para restaurar.
 export default function History() {
   const { expire } = useAuth();
+  const { hidden } = usePrivacy();
   const custom = useCategories().list;
   usePageTitle("Histórico de alterações");
   const [result, setResult] = useState(null); // { events, deleted, archived, truncated } | { error }
@@ -115,7 +118,7 @@ export default function History() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium [overflow-wrap:anywhere]">{t.description}</p>
                   <p className="text-sm text-muted">
-                    {t.type === "input" ? "Receita" : "Despesa"} · {formatCents(t.value)} · {categoryLabel(t.type, t.category, custom)} · arquivado em{" "}
+                    {t.type === "input" ? "Receita" : "Despesa"} · <Money cents={t.value} /> · {categoryLabel(t.type, t.category, custom)} · arquivado em{" "}
                     {inBrasilia(t.archivedAt).format("DD/MM/YYYY [às] HH:mm")}
                   </p>
                 </div>
@@ -148,7 +151,7 @@ export default function History() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium [overflow-wrap:anywhere]">{t.description}</p>
                   <p className="text-sm text-muted">
-                    {t.type === "input" ? "Receita" : "Despesa"} · {formatCents(t.value)} · {categoryLabel(t.type, t.category, custom)} · excluído em{" "}
+                    {t.type === "input" ? "Receita" : "Despesa"} · <Money cents={t.value} /> · {categoryLabel(t.type, t.category, custom)} · excluído em{" "}
                     {inBrasilia(t.deletedAt).format("DD/MM/YYYY [às] HH:mm")}
                   </p>
                 </div>
@@ -197,12 +200,12 @@ export default function History() {
                   {e.action === "edited" ? (
                     <ul>
                       {e.changes.map((c) => (
-                        <li key={c.field}>{describeChange(c, e.snapshot.type, custom)}</li>
+                        <li key={c.field}>{describeChange(c, e.snapshot.type, custom, hidden)}</li>
                       ))}
                     </ul>
                   ) : (
                     <p>
-                      {e.snapshot.type === "input" ? "Receita" : "Despesa"} · {describeSnapshot(e.snapshot, custom)}
+                      {e.snapshot.type === "input" ? "Receita" : "Despesa"} · {describeSnapshot(e.snapshot, custom, hidden)}
                     </p>
                   )}
                 </div>

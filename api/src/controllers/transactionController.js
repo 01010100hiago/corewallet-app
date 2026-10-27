@@ -32,6 +32,19 @@ export const transactionController = {
     res.json({ ...rest, month, transactions: transactions.map(publicTransaction) });
   },
 
+  async search(req, res) {
+    const { transactions, ...rest } = await transactionService.search(req.user.id, req.validatedQuery);
+    res.json({
+      ...rest,
+      transactions: transactions.map((t) => ({
+        ...publicTransaction(t),
+        status: t.deletedAt ? "deleted" : t.archivedAt ? "archived" : "active",
+        archivedAt: t.archivedAt ?? null,
+        deletedAt: t.deletedAt ?? null,
+      })),
+    });
+  },
+
   async get(req, res) {
     const transaction = await transactionService.findOwned(req.user.id, req.params.id);
     if (!transaction) return notFound(res);

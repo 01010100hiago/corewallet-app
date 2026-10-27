@@ -78,9 +78,19 @@ export function createAuthController({ env, captcha, google }) {
     // Só chaves públicas: o segredo do captcha nunca sai da API.
     config(req, res) {
       res.json({
-        captcha: captcha.enabled ? { provider: "turnstile", siteKey: env.turnstile.siteKey } : null,
+        captcha: !captcha.enabled
+          ? null
+          : captcha.provider === "pow"
+            ? { provider: "pow" }
+            : { provider: "turnstile", siteKey: env.turnstile.siteKey },
         google: google.enabled ? { clientId: env.googleClientId } : null,
       });
+    },
+
+    // Desafio da verificação automática. Só existe quando ela é a ligada (sem Turnstile).
+    challenge(req, res) {
+      if (!captcha.challenge) return res.status(404).json({ message: "Rota não encontrada" });
+      res.json(captcha.challenge());
     },
 
     async signup(req, res) {

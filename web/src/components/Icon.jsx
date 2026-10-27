@@ -121,6 +121,13 @@ const paths = {
       <path className="a" d="M12 11.6 V16.6 M9.8 14.6 L12 16.8 L14.2 14.6" />
     </>
   ),
+  categorias: (
+    <>
+      <path className="t" d="M3.5 11.6 V5.6 a2 2 0 0 1 2 -2 h6 a2 2 0 0 1 1.4 .6 l7 7 a2 2 0 0 1 0 2.8 l-6.2 6.2 a2 2 0 0 1 -2.8 0 l-7 -7 a2 2 0 0 1 -.4 -1.6 Z" />
+      <path d="M3.5 11.6 V5.6 a2 2 0 0 1 2 -2 h6 a2 2 0 0 1 1.4 .6 l7 7 a2 2 0 0 1 0 2.8 l-6.2 6.2 a2 2 0 0 1 -2.8 0 l-7 -7 a2 2 0 0 1 -.4 -1.6 Z" />
+      <circle className="f" cx={8} cy={8} r={1.4} />
+    </>
+  ),
   grafico: (
     <>
       <rect className="t" x={3} y={3.5} width={18} height={17} rx={3.5} />

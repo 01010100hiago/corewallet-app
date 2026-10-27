@@ -7,7 +7,7 @@ import { createTransactionRouter } from "./routes/transactionRoutes.js";
 import { createCategoryRouter } from "./routes/categoryRoutes.js";
 import { createAnalysisRouter } from "./routes/analysisRoutes.js";
 import { createAuthMiddleware } from "./middlewares/authMiddleware.js";
-import { createCaptcha } from "./services/captchaService.js";
+import { createCaptcha, createPowCaptcha } from "./services/captchaService.js";
 import { createCsrf } from "./middlewares/csrf.js";
 import { createLimiters } from "./middlewares/rateLimit.js";
 import { createGoogleVerifier } from "./services/googleService.js";
@@ -24,7 +24,7 @@ function publicMessage(err, status) {
 // deps permite trocar captcha e Google por versões de teste.
 export function createApp(env, deps = {}) {
   const app = express();
-  const captcha = deps.captcha ?? createCaptcha(env.turnstile);
+  const captcha = deps.captcha ?? (env.turnstile ? createCaptcha(env.turnstile) : env.pow ? createPowCaptcha(env.pow) : createCaptcha(null));
   const google = deps.google ?? createGoogleVerifier(env.googleClientId);
   const authMiddleware = createAuthMiddleware(env.jwtSecret);
   // env.rateLimits só existe nos testes (false desliga, objeto troca os limites).
@@ -60,7 +60,8 @@ export function createApp(env, deps = {}) {
     const status = err.status || 500;
     if (status >= 500) console.error(err);
     const body = { message: publicMessage(err, status) };
-    if (status === 422 && err.errors) body.errors = err.errors;
+    // O detalhe por campo vai em qualquer erro do cliente (422 de validação, 409 de conflito), nunca em 5xx.
+    if (status < 500 && err.errors) body.errors = err.errors;
     res.status(status).json(body);
   });
 

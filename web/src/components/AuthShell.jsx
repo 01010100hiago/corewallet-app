@@ -4,8 +4,8 @@ import Icon from "./Icon.jsx";
 import Illustration from "./Illustration.jsx";
 
 const POINTS = [
-  { icon: "cookie", title: "Acesso que o JavaScript não lê", text: "A sessão fica num cookie protegido do navegador." },
-  { icon: "senha", title: "Senha guardada embaralhada", text: "Só fica uma versão embaralhada (bcrypt), nunca a senha em si." },
+  { icon: "senha", title: "Senha embaralhada", text: "Nem nós conseguimos ler a sua senha." },
+  { icon: "cadeado", title: "Conexão criptografada", text: "O que você envia viaja por HTTPS." },
 ];
 
 // Moldura das telas de acesso: painel de marca de um lado, formulário do outro.

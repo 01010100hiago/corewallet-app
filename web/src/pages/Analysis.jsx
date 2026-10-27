@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ANALYSIS_PERIODS, categoryLabel, formatCents, monthLabel } from "@corewallet/shared";
+import { ANALYSIS_PERIODS, categoryLabel, monthLabel } from "@corewallet/shared";
+import Money from "../components/Money.jsx";
 import { useAuth } from "../context/authContext.js";
 import { api, getErrorMessage } from "../lib/api.js";
 import { inBrasilia } from "../lib/brasilia.js";
@@ -8,6 +9,7 @@ import { summarize, toneOf } from "../lib/analysis.js";
 import { formatPercent, formatVariation, variation } from "../lib/format.js";
 import { usePageTitle } from "../lib/usePageTitle.js";
 import Icon from "../components/Icon.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import MonthlyBars from "../components/MonthlyBars.jsx";
 import BalanceLine from "../components/BalanceLine.jsx";
@@ -47,30 +49,21 @@ export default function Analysis() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link to="/" className="inline-flex w-fit items-center gap-2 rounded-md py-1 text-sm font-medium text-pine-900 hover:text-pine-700">
-        <Icon name="voltar" className="size-5" />
-        Voltar
-      </Link>
-
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-pine-900">Análise financeira</h1>
-          <p className="mt-1 text-muted">Receitas, despesas e saldo dos últimos {months} meses. O mês atual está em andamento.</p>
-        </div>
-        <div role="group" aria-label="Período" className="inline-flex rounded-md border border-line bg-white p-0.5">
+      <PageHeader title="Análise financeira" subtitle={`Receitas, despesas e saldo dos últimos ${months} meses. O mês atual está em andamento.`}>
+        <div role="group" aria-label="Período" className="inline-flex rounded-md border border-white/20 bg-white/10 p-0.5">
           {ANALYSIS_PERIODS.map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={p === months}
               onClick={() => setParams(p === 6 ? {} : { periodo: String(p) })}
-              className={`h-9 rounded px-3.5 text-sm font-medium transition ${p === months ? "bg-pine-900 text-white" : "text-pine-900 hover:bg-mint-100"}`}
+              className={`h-9 rounded px-3.5 text-sm font-medium transition ${p === months ? "bg-white text-pine-900" : "text-white hover:bg-white/15"}`}
             >
               {p} meses
             </button>
           ))}
         </div>
-      </header>
+      </PageHeader>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
       {!ready && (
@@ -96,11 +89,11 @@ export default function Analysis() {
         <>
           <section aria-label="Indicadores do período">
             <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <Kpi label="Receitas" value={formatCents(s.totalIn)} change={s.changes.totalIn} good="up" />
-              <Kpi label="Despesas" value={formatCents(s.totalOut)} change={s.changes.totalOut} good="down" />
-              <Kpi label="Resultado" value={formatCents(s.result)} change={s.changes.result} good="up" negative={s.result < 0} />
+              <Kpi label="Receitas" value={<Money cents={s.totalIn} />} change={s.changes.totalIn} good="up" />
+              <Kpi label="Despesas" value={<Money cents={s.totalOut} />} change={s.changes.totalOut} good="down" />
+              <Kpi label="Resultado" value={<Money cents={s.result} />} change={s.changes.result} good="up" negative={s.result < 0} />
               <Kpi label="Taxa de poupança" value={s.savingsRate === null ? "—" : formatPercent(s.savingsRate)} hint={s.savingsRate === null ? "Sem receitas no período" : "Do que entrou, quanto sobrou"} negative={s.savingsRate !== null && s.savingsRate < 0} />
-              <Kpi label="Despesa média por mês" value={formatCents(s.averageOut)} hint={`Em ${months} meses, incluindo o atual`} />
+              <Kpi label="Despesa média por mês" value={<Money cents={s.averageOut} />} hint={`Em ${months} meses, incluindo o atual`} />
             </dl>
             <p className="mt-2 text-sm text-muted">As variações comparam com os {months} meses anteriores.</p>
           </section>
@@ -116,7 +109,7 @@ export default function Analysis() {
             <h2 id="balance-title" className="text-lg font-semibold text-pine-900">
               Evolução do saldo
             </h2>
-            <p className="mb-4 text-sm text-muted">Saldo no fim de cada mês, a partir de {formatCents(data.openingBalance)} no início do período.</p>
+            <p className="mb-4 text-sm text-muted">Saldo no fim de cada mês, a partir de <Money cents={data.openingBalance} /> no início do período.</p>
             <BalanceLine points={s.balances} />
           </section>
 
@@ -147,7 +140,7 @@ export default function Analysis() {
                         <td className="py-2 pr-3 whitespace-nowrap text-muted">{inBrasilia(t.createdAt).format("DD/MM/YYYY")}</td>
                         <td className="py-2 pr-3 font-medium [overflow-wrap:anywhere]">{t.description}</td>
                         <td className="py-2 pr-3">{categoryLabel("output", t.category, custom)}</td>
-                        <td className="tabular py-2 text-right font-semibold text-negative">{formatCents(t.value)}</td>
+                        <td className="tabular py-2 text-right font-semibold text-negative"><Money cents={t.value} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -201,8 +194,8 @@ function MonthComparison({ monthly }) {
             {monthly.rows.map((r) => (
               <tr key={r.label}>
                 <th scope="row" className="py-2 pr-3 font-medium">{r.label}</th>
-                <td className="tabular py-2 pr-3 text-right">{formatCents(r.previous)}</td>
-                <td className="tabular py-2 pr-3 text-right">{formatCents(r.current)}</td>
+                <td className="tabular py-2 pr-3 text-right"><Money cents={r.previous} /></td>
+                <td className="tabular py-2 pr-3 text-right"><Money cents={r.current} /></td>
                 <td className={`tabular py-2 text-right font-medium ${toneOf(r.change, r.good)}`}>{formatVariation(r.change)}</td>
               </tr>
             ))}
@@ -240,7 +233,7 @@ function CategoryTable({ title, type, rows, custom, good }) {
               return (
                 <tr key={r.category}>
                   <th scope="row" className="py-2 pr-3 font-medium [overflow-wrap:anywhere]">{categoryLabel(type, r.category, custom)}</th>
-                  <td className="tabular py-2 pr-3 text-right">{formatCents(r.total)}</td>
+                  <td className="tabular py-2 pr-3 text-right"><Money cents={r.total} /></td>
                   <td className="tabular py-2 pr-3 text-right text-muted">{formatPercent((r.total / total) * 100)}</td>
                   <td className={`tabular py-2 text-right font-medium ${toneOf(change, good)}`}>{r.previousTotal === 0 ? "novo no período" : formatVariation(change)}</td>
                 </tr>

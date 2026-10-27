@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { categoryLabel, formatCents } from "@corewallet/shared";
+import { categoryLabel } from "@corewallet/shared";
 import Icon from "./Icon.jsx";
 import ErrorMessage from "./ErrorMessage.jsx";
+import Money from "./Money.jsx";
+import { usePrivacy } from "../context/privacyContext.js";
+import { moneyText } from "../lib/format.js";
 import TransactionHistory from "./TransactionHistory.jsx";
 import { inBrasilia } from "../lib/brasilia.js";
 
@@ -13,6 +16,7 @@ const action =
 // própria linha e só some da tela depois de a API confirmar; arquivar é reversível e não pede.
 export default function TransactionRow({ transaction: t, onDelete, onArchive, categories = [] }) {
   const input = t.type === "input";
+  const { hidden } = usePrivacy();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -50,19 +54,21 @@ export default function TransactionRow({ transaction: t, onDelete, onArchive, ca
           <span className="block font-medium [overflow-wrap:anywhere]">{t.description}</span>
           <span className="text-sm text-muted">
             {categoryLabel(t.type, t.category, categories)} ·{" "}
-            <time dateTime={t.createdAt}>{inBrasilia(t.createdAt).format("HH:mm")}</time>
+            <time dateTime={t.createdAt} title={`Registrado em ${inBrasilia(t.createdAt).format("DD/MM/YYYY [às] HH:mm:ss")} (horário de Brasília)`}>
+              {inBrasilia(t.createdAt).format("HH:mm")}
+            </time>
           </span>
         </span>
         <span className={`tabular shrink-0 font-semibold ${input ? "text-positive" : "text-negative"}`}>
           {!input && "− "}
-          {formatCents(t.value)}
+          <Money cents={t.value} />
         </span>
       </div>
 
       {confirming ? (
         <div ref={groupRef} tabIndex={-1} role="group" aria-label={`Excluir ${t.description}`} className="mt-3 flex flex-col gap-2 rounded-lg bg-coral-100/60 p-3 sm:ml-[3.25rem]">
           <p className="text-sm text-coral-950">
-            Excluir “{t.description}” de {formatCents(t.value)}? Ele sai da lista e do saldo, mas fica no histórico e dá para restaurar.
+            Excluir “{t.description}” de {moneyText(t.value, hidden)}? Ele sai da lista e do saldo, mas fica no histórico e dá para restaurar.
           </p>
           {error && <ErrorMessage>{error}</ErrorMessage>}
           <div className="flex gap-2">

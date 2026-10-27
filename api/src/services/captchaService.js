@@ -1,3 +1,5 @@
+import { createPow } from "./powService.js";
+
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const TIMEOUT_MS = 5000;
 
@@ -9,6 +11,7 @@ export function createCaptcha(config, fetchImpl = fetch) {
 
   return {
     enabled: true,
+    provider: "turnstile",
     async verify(token, ip) {
       try {
         const body = new URLSearchParams({ secret: config.secret, response: token });
@@ -26,5 +29,16 @@ export function createCaptcha(config, fetchImpl = fetch) {
         return "unavailable";
       }
     },
+  };
+}
+
+// Verificação automática própria (sem chaves nem serviço externo). Ver powService.js.
+export function createPowCaptcha(config, now = Date.now) {
+  const pow = createPow({ secret: config.secret, maxNumber: config.maxNumber, now });
+  return {
+    enabled: true,
+    provider: "pow",
+    challenge: () => pow.issue(),
+    verify: async (token) => pow.verify(token),
   };
 }

@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { categoryLabel, formatCents } from "@corewallet/shared";
+import { categoryLabel } from "@corewallet/shared";
+import Money from "./Money.jsx";
+import { usePrivacy } from "../context/privacyContext.js";
+import { moneyText } from "../lib/format.js";
 
 // Cores das fatias, em ordem. As classes aparecem por extenso para o Tailwind enxergá-las.
 const PALETTE = [
@@ -23,6 +26,7 @@ const centerSize = (text) => (text.length <= 9 ? "text-lg" : text.length <= 11 ?
 // visual (aria-hidden); a legenda é o texto que o leitor de tela lê. Medidas por atributo do
 // SVG, não por style, para não depender da CSP.
 export default function SpendingChart({ categories, custom = [] }) {
+  const { hidden } = usePrivacy();
   const rows = categories.filter((c) => c.type === "output");
   const total = rows.reduce((n, r) => n + r.total, 0);
   if (total === 0) return null;
@@ -42,7 +46,7 @@ export default function SpendingChart({ categories, custom = [] }) {
     offset += s.pct;
     return arc;
   });
-  const totalText = formatCents(total);
+  const totalText = moneyText(total, hidden);
 
   return (
     <section aria-labelledby="spending-title" className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
@@ -79,7 +83,7 @@ export default function SpendingChart({ categories, custom = [] }) {
           <div className="absolute inset-0 grid place-content-center text-center">
             <span className="text-xs text-muted">Total</span>
             <span data-testid="chart-total" className={`tabular whitespace-nowrap font-semibold text-pine-900 ${centerSize(totalText)}`}>
-              {totalText}
+              <Money cents={total} />
             </span>
           </div>
         </div>
@@ -93,7 +97,7 @@ export default function SpendingChart({ categories, custom = [] }) {
                 {s.others && <span className="font-normal text-muted"> ({s.others} categorias)</span>}
               </span>
               <span className="tabular shrink-0 text-right">
-                <span className="font-semibold">{formatCents(s.total)}</span>
+                <span className="font-semibold"><Money cents={s.total} /></span>
                 <span className="ml-2 text-muted">{s.pct < 0.5 ? "<1%" : `${Math.round(s.pct)}%`}</span>
               </span>
             </li>

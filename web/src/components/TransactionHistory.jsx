@@ -3,9 +3,11 @@ import { api, getErrorMessage } from "../lib/api.js";
 import { inBrasilia } from "../lib/brasilia.js";
 import { ACTION_LABEL, describeChange, describeSnapshot } from "../lib/historyText.js";
 import ErrorMessage from "./ErrorMessage.jsx";
+import { usePrivacy } from "../context/privacyContext.js";
 
 // Eventos de um lançamento (criado, editado, excluído, restaurado), do mais novo para o mais antigo.
 export default function TransactionHistory({ transactionId, categories }) {
+  const { hidden } = usePrivacy();
   const [state, setState] = useState({ id: null });
   const current = state.id === transactionId ? state : null;
 
@@ -44,11 +46,11 @@ export default function TransactionHistory({ transactionId, categories }) {
           {e.action === "edited" ? (
             <ul className="mt-0.5 text-muted">
               {e.changes.map((c) => (
-                <li key={c.field}>{describeChange(c, e.snapshot.type, categories)}</li>
+                <li key={c.field}>{describeChange(c, e.snapshot.type, categories, hidden)}</li>
               ))}
             </ul>
           ) : (
-            <p className="text-muted">{describeSnapshot(e.snapshot, categories)}</p>
+            <p className="text-muted">{describeSnapshot(e.snapshot, categories, hidden)}</p>
           )}
         </li>
       ))}

@@ -32,3 +32,20 @@ export function shiftMonth(key, delta) {
 
 const NAMES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 export const monthLabel = (key) => `${NAMES[Number(key.slice(5)) - 1]} de ${key.slice(0, 4)}`;
+
+// "2026-10-27" -> { start, end } (end exclusivo) cobrindo aquele dia inteiro em Brasília.
+const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+export function isDayKey(value) {
+  if (typeof value !== "string") return false;
+  const m = DAY_RE.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (y < 2000 || y > 2100) return false;
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
+}
+export function dayRange(key) {
+  if (!isDayKey(key)) return null;
+  const [y, m, d] = key.split("-").map(Number);
+  return { start: new Date(Date.UTC(y, m - 1, d) + OFFSET_MS), end: new Date(Date.UTC(y, m - 1, d + 1) + OFFSET_MS) };
+}

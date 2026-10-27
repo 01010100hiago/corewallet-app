@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthContext } from "../context/authContext.js";
 import { ConfigContext } from "../context/configContext.js";
+import { PrivacyContext } from "../context/privacyContext.js";
 
 export const fakeAuth = (overrides = {}) => ({
   user: { id: "1", name: "Maria Silva", email: "maria@exemplo.com", provider: "password", profileComplete: true, createdAt: "2026-10-25T12:00:00.000Z" },
@@ -24,8 +25,9 @@ export const fakeAuth = (overrides = {}) => ({
 // podermos conferir quando a tela redireciona.
 export const noConfig = { status: "ready", captcha: null, google: null };
 
-export function renderPage(ui, { path = "/", route = path, auth = fakeAuth(), config = noConfig } = {}) {
+export function renderPage(ui, { path = "/", route = path, auth = fakeAuth(), config = noConfig, privacy = { hidden: false, toggle: () => {} } } = {}) {
   return render(
+    <PrivacyContext.Provider value={privacy}>
     <ConfigContext.Provider value={config}>
     <AuthContext.Provider value={auth}>
       <MemoryRouter initialEntries={[route]}>
@@ -37,5 +39,6 @@ export function renderPage(ui, { path = "/", route = path, auth = fakeAuth(), co
       </MemoryRouter>
     </AuthContext.Provider>
     </ConfigContext.Provider>
+    </PrivacyContext.Provider>
   );
 }

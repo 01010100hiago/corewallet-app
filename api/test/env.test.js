@@ -2,7 +2,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadEnv } from "../src/config/env.js";
 
-const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY", "RATE_LIMITS"];
+const KEYS = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN", "PORT", "COOKIE_SECURE", "NODE_ENV", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_CLIENT_ID", "TRUST_PROXY", "RATE_LIMITS", "CAPTCHA_POW", "POW_MAX_NUMBER"];
 
 describe("loadEnv", () => {
   let saved;
@@ -59,6 +59,33 @@ describe("loadEnv", () => {
     assert.throws(() => loadEnv(), /juntas/);
     process.env.TURNSTILE_SITE_KEY = "site";
     assert.deepEqual(loadEnv().turnstile, { secret: "segredo", siteKey: "site" });
+  });
+
+  test("verificação automática: ligada sem Turnstile, desligada com Turnstile ou com CAPTCHA_POW=off", () => {
+    const on = loadEnv().pow;
+    assert.match(on.secret, /^[0-9a-f]{64}$/);
+    assert.equal(on.maxNumber, 100_000);
+    // O segredo é derivado do JWT_SECRET: muda junto com ele e não é o próprio JWT_SECRET.
+    assert.notEqual(on.secret, process.env.JWT_SECRET);
+    process.env.JWT_SECRET = "y".repeat(40);
+    assert.notEqual(loadEnv().pow.secret, on.secret);
+
+    process.env.CAPTCHA_POW = "off";
+    assert.equal(loadEnv().pow, null);
+    delete process.env.CAPTCHA_POW;
+    process.env.TURNSTILE_SITE_KEY = "site";
+    process.env.TURNSTILE_SECRET_KEY = "segredo";
+    assert.equal(loadEnv().pow, null, "com Turnstile, vale o Turnstile");
+    assert.equal(loadEnv().turnstile.siteKey, "site");
+  });
+
+  test("POW_MAX_NUMBER: inteiro entre 100 e 5.000.000", () => {
+    process.env.POW_MAX_NUMBER = "2000";
+    assert.equal(loadEnv().pow.maxNumber, 2000);
+    for (const bad of ["99", "5000001", "abc", "1.5", "-5", "0"]) {
+      process.env.POW_MAX_NUMBER = bad;
+      assert.throws(() => loadEnv(), /POW_MAX_NUMBER/, bad);
+    }
   });
 
   test("chaves de teste da Cloudflare: aceitas fora de produção, recusadas em produção", () => {

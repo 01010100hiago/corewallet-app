@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Link } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { transactionFormSchema, categoryOptions, categoryNameSchema } from "@corewallet/shared";
 import Icon from "./Icon.jsx";
+import PageHeader from "./PageHeader.jsx";
 import Input from "./Input.jsx";
 import Select from "./Select.jsx";
 import { Button, LinkButton } from "./Button.jsx";
@@ -89,30 +89,21 @@ export default function TransactionForm({ type, editing = false, initial, onSubm
   }
 
   return (
-    <div className="mx-auto max-w-lg">
-      <Link to="/" className="mb-4 inline-flex items-center gap-2 rounded-md py-1 text-sm font-medium text-pine-900 hover:text-pine-700">
-        <Icon name="voltar" className="size-5" />
-        Voltar
-      </Link>
-
-      <div className="rounded-lg border border-line bg-white p-6 sm:p-8">
-        <header className="flex items-center gap-4">
-          <span className={`grid size-14 place-items-center rounded-lg ${t.badge}`}>
-            <Icon name={t.icon} className="size-8" />
-          </span>
-          <div>
-            <h1 className="text-2xl font-semibold text-pine-900">{editing ? t.editTitle : t.title}</h1>
-            <p className="text-muted">{t.hint}</p>
-          </div>
-        </header>
-
+    <>
+      <PageHeader title={editing ? t.editTitle : t.title} subtitle={t.hint}>
+        <span className="inline-flex items-center gap-2 rounded-md bg-white/10 px-2.5 py-1 text-sm font-medium [--icon-accent:currentColor]">
+          <Icon name={t.icon} className="size-5" />
+          {type === "input" ? "Receita" : "Despesa"}
+        </span>
+      </PageHeader>
+      <div className="mx-auto max-w-lg rounded-lg border border-line bg-white p-6 shadow-sm sm:p-8">
         {apiError && (
-          <div className="mt-5">
+          <div className="mb-5">
             <ErrorMessage>{apiError}</ErrorMessage>
           </div>
         )}
 
-        <form onSubmit={submit} noValidate className="mt-6 flex flex-col gap-4">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <Input
             label="Valor (R$)"
             name="value"
@@ -184,6 +175,6 @@ export default function TransactionForm({ type, editing = false, initial, onSubm
           </div>
         </form>
       </div>
-    </div>
+    </>
   );
 }

@@ -67,7 +67,7 @@ export default function Devices() {
   }
 
   return (
-    <section aria-labelledby="devices-title" className="rounded-lg border border-line bg-white p-6">
+    <section aria-labelledby="devices-title" className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
       <h2 id="devices-title" className="font-semibold text-pine-900">
         Dispositivos conectados
       </h2>

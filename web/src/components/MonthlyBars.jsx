@@ -1,4 +1,6 @@
-import { monthShort, monthShortWithYear, formatCompact, niceMax, formatCents } from "../lib/format.js";
+import { monthShort, monthShortWithYear, compactText, niceMax } from "../lib/format.js";
+import { usePrivacy } from "../context/privacyContext.js";
+import Money from "./Money.jsx";
 
 const W = 640;
 const H = 260;
@@ -8,6 +10,7 @@ const TICKS = 4;
 // Receitas e despesas lado a lado, mês a mês. O desenho é só reforço visual: os valores exatos
 // estão na tabela logo abaixo (dentro de "Ver valores em tabela"), que é o que o leitor de tela lê.
 export default function MonthlyBars({ months }) {
+  const { hidden } = usePrivacy();
   const top = niceMax(Math.max(...months.flatMap((m) => [m.totalIn, m.totalOut]), 1));
   const plotW = W - M.left - M.right;
   const plotH = H - M.top - M.bottom;
@@ -32,7 +35,7 @@ export default function MonthlyBars({ months }) {
             <g key={i}>
               <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} strokeWidth="1" className={i === 0 ? "stroke-sage-300" : "stroke-line"} />
               <text x={M.left - 8} y={y(v) + 4} textAnchor="end" fontSize="11" className="fill-muted">
-                {i === 0 ? "0" : formatCompact(v)}
+                {i === 0 ? "0" : compactText(v, hidden)}
               </text>
             </g>
           );
@@ -69,9 +72,9 @@ export default function MonthlyBars({ months }) {
               {months.map((m) => (
                 <tr key={m.key}>
                   <th scope="row" className="py-1.5 pr-3 font-normal">{monthShortWithYear(m.key)}</th>
-                  <td className="tabular py-1.5 pr-3 text-right">{formatCents(m.totalIn)}</td>
-                  <td className="tabular py-1.5 pr-3 text-right">{formatCents(m.totalOut)}</td>
-                  <td className={`tabular py-1.5 text-right font-medium ${m.totalIn - m.totalOut < 0 ? "text-negative" : "text-positive"}`}>{formatCents(m.totalIn - m.totalOut)}</td>
+                  <td className="tabular py-1.5 pr-3 text-right"><Money cents={m.totalIn} /></td>
+                  <td className="tabular py-1.5 pr-3 text-right"><Money cents={m.totalOut} /></td>
+                  <td className={`tabular py-1.5 text-right font-medium ${m.totalIn - m.totalOut < 0 ? "text-negative" : "text-positive"}`}><Money cents={m.totalIn - m.totalOut} /></td>
                 </tr>
               ))}
             </tbody>

@@ -15,6 +15,7 @@ export async function signUp(page, user) {
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Senha", { exact: true }).fill(user.password);
   await page.getByLabel("Confirme a senha").fill(user.password);
+  await expect(page.getByText(/Verificado: você é uma pessoa/)).toBeVisible();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).toHaveURL(/\/signin$/);
 }
@@ -23,6 +24,7 @@ export async function signIn(page, user) {
   await page.goto("/signin");
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Senha", { exact: true }).fill(user.password);
+  await expect(page.getByText(/Verificado: você é uma pessoa/)).toBeVisible();
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByTestId("balance")).toBeVisible();
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { parseToCents } from "./money.js";
 import { ALL_CATEGORY_IDS, DEFAULT_CATEGORY, isCategoryOf, isCustomCategoryId } from "./categories.js";
-import { isMonthKey } from "./months.js";
+import { isMonthKey, isDayKey } from "./months.js";
 import { isCommonPassword, fitsBcrypt, PASSWORD_MAX_BYTES } from "./password.js";
 
 export const PASSWORD_MIN = 8;
@@ -164,3 +164,26 @@ export const analysisQuerySchema = z.object({
     .default("6")
     .transform(Number),
 });
+
+// Corpo de PATCH /categories/:id: só o nome muda.
+export const renameCategorySchema = z.object({ name: categoryNameSchema });
+
+// Extrato (GET /transactions/search). Tudo é opcional. `status`: all = ativos e arquivados (padrão),
+// active, archived ou deleted. from/to: dias (AAAA-MM-DD, inclusive) no horário de Brasília.
+export const SEARCH_STATUSES = ["all", "active", "archived", "deleted"];
+export const SEARCH_MAX_LIMIT = 100;
+const anyCategory = z.string().refine((id) => ALL_CATEGORY_IDS.includes(id) || isCustomCategoryId(id), "Categoria inválida");
+export const searchQuerySchema = z
+  .object({
+    q: z.string().trim().max(100, "A busca pode ter no máximo 100 caracteres").optional(),
+    type: z.enum(TRANSACTION_TYPES, { error: "Tipo inválido" }).optional(),
+    category: anyCategory.optional(),
+    status: z.enum(SEARCH_STATUSES, { error: "Situação inválida" }).default("all"),
+    from: z.string().refine(isDayKey, "Data inicial inválida. Use AAAA-MM-DD").optional(),
+    to: z.string().refine(isDayKey, "Data final inválida. Use AAAA-MM-DD").optional(),
+    limit: z.coerce.number({ error: "Limite inválido" }).int().min(1).max(SEARCH_MAX_LIMIT).default(50),
+    cursor: z.string().max(80).optional(),
+  })
+  .superRefine((q, ctx) => {
+    if (q.from && q.to && q.from > q.to) ctx.addIssue({ code: "custom", path: ["to"], message: "A data final não pode ser antes da inicial" });
+  });

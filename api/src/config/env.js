@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 const REQUIRED = ["DATABASE_URI", "JWT_SECRET", "WEB_ORIGIN"];
 const JWT_SECRET_MIN = 32;
 const DUMMY_TURNSTILE_SECRETS = new Set([
@@ -40,7 +42,17 @@ export function loadEnv() {
   if (production && DUMMY_TURNSTILE_SECRETS.has(turnstileSecret)) {
     throw new Error("TURNSTILE_SECRET_KEY é uma chave de teste da Cloudflare (o captcha sempre passa). Use a chave real em produção");
   }
-  if (production && !turnstileSecret) {
+
+  // Sem as chaves do Turnstile, a verificação automática própria (prova de trabalho) fica ligada.
+  // CAPTCHA_POW=off a desliga; POW_MAX_NUMBER ajusta a dificuldade (100 a 5.000.000; padrão 100.000).
+  const powOff = process.env.CAPTCHA_POW === "off";
+  const rawMax = process.env.POW_MAX_NUMBER;
+  const powMax = rawMax ? Number(rawMax) : 100_000;
+  if (!Number.isInteger(powMax) || powMax < 100 || powMax > 5_000_000) {
+    throw new Error("POW_MAX_NUMBER precisa ser um inteiro entre 100 e 5000000");
+  }
+  const pow = turnstileSecret || powOff ? null : { secret: createHmac("sha256", process.env.JWT_SECRET).update("corewallet:pow:v1").digest("hex"), maxNumber: powMax };
+  if (production && !turnstileSecret && !pow) {
     console.warn("Aviso: captcha desligado. Defina TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY para proteger o login.");
   }
 
@@ -58,6 +70,7 @@ export function loadEnv() {
     trustProxy: Number(process.env.TRUST_PROXY) || 0,
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
     turnstile: turnstileSecret ? { secret: turnstileSecret, siteKey: turnstileSiteKey } : null,
+    pow,
     databaseUri: process.env.DATABASE_URI,
     jwtSecret: process.env.JWT_SECRET,
     webOrigin: process.env.WEB_ORIGIN,

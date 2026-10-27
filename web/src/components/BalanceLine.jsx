@@ -1,4 +1,6 @@
-import { monthShort, monthShortWithYear, formatCompact, niceMax, formatCents } from "../lib/format.js";
+import { monthShort, monthShortWithYear, compactText, niceMax } from "../lib/format.js";
+import { usePrivacy } from "../context/privacyContext.js";
+import Money from "./Money.jsx";
 
 const W = 640;
 const H = 220;
@@ -7,6 +9,7 @@ const M = { top: 16, right: 14, bottom: 30, left: 62 };
 // Saldo no fim de cada mês (o saldo inicial do período mais o resultado de cada mês, em ordem).
 // points: [{ key, balance }]. Valores exatos na tabela, dentro de "Ver valores em tabela".
 export default function BalanceLine({ points }) {
+  const { hidden } = usePrivacy();
   const values = points.map((p) => p.balance);
   const max = Math.max(...values, 0);
   const min = Math.min(...values, 0);
@@ -27,7 +30,7 @@ export default function BalanceLine({ points }) {
           <g key={v}>
             <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} strokeWidth="1" className={v === 0 ? "stroke-sage-300" : "stroke-line"} />
             <text x={M.left - 8} y={y(v) + 4} textAnchor="end" fontSize="11" className="fill-muted">
-              {v === 0 ? "0" : formatCompact(v)}
+              {v === 0 ? "0" : compactText(v, hidden)}
             </text>
           </g>
         ))}
@@ -57,7 +60,7 @@ export default function BalanceLine({ points }) {
               {points.map((p) => (
                 <tr key={p.key}>
                   <th scope="row" className="py-1.5 pr-3 font-normal">{monthShortWithYear(p.key)}</th>
-                  <td className={`tabular py-1.5 text-right font-medium ${p.balance < 0 ? "text-negative" : ""}`}>{formatCents(p.balance)}</td>
+                  <td className={`tabular py-1.5 text-right font-medium ${p.balance < 0 ? "text-negative" : ""}`}><Money cents={p.balance} /></td>
                 </tr>
               ))}
             </tbody>

@@ -1,50 +1,53 @@
 import Icon from "./Icon.jsx";
 
 // O que o sistema guarda de verdade (ver api/src/models). Mantenha em sincronia.
+// Uma linha curta por item: o resumo é para ler rápido, não para virar manual.
 const KEPT = [
-  { icon: "pessoa", title: "Seu nome", text: "Para te chamar pelo nome na tela." },
-  { icon: "email", title: "Seu email", text: "Para identificar a sua conta. Nunca é mostrado a outras pessoas." },
-  { icon: "senha", title: "Uma versão embaralhada da senha", text: "Só para quem criou conta com senha. Não dá para voltar ao original." },
-  { icon: "chave", title: "O identificador da sua conta Google", text: "Só para quem entra com o Google, para reconhecer a mesma conta no próximo acesso." },
-  { icon: "relogio", title: "Método e data de acesso", text: "O método de entrada (Google ou senha), se o email foi verificado e a data de criação da conta." },
-  {
-    icon: "computador",
-    title: "Os dispositivos com sessão aberta",
-    text: "Navegador e sistema, o começo do IP e o último uso. Some quando a sessão acaba (no máximo 30 dias) ou quando você a encerra.",
-  },
-  { icon: "atividade", title: "Seus lançamentos", text: "Valor, descrição, tipo e data de cada receita e despesa que você registra." },
+  { icon: "pessoa", title: "Nome e email", text: "Para identificar a sua conta." },
+  { icon: "senha", title: "Senha embaralhada", text: "Só de quem usa senha. Não volta ao original." },
+  { icon: "chave", title: "ID da conta Google", text: "Só de quem entra com o Google." },
+  { icon: "relogio", title: "Método e data de acesso", text: "Google ou senha, e quando a conta foi criada." },
+  { icon: "computador", title: "Dispositivos com sessão", text: "Navegador, sistema, início do IP e último uso." },
+  { icon: "atividade", title: "Lançamentos e categorias", text: "Valor, descrição, tipo, categoria e data." },
+  { icon: "categorias", title: "Histórico de alterações", text: "O que você editou, arquivou ou excluiu." },
 ];
 
-const NOT_KEPT = ["Sua senha em texto", "Dados de cartão ou de banco", "Localização, telefone ou documentos", "Sua senha do Google (ela nunca chega até nós)"];
+const NOT_KEPT = ["Senha em texto", "Dados de cartão ou banco", "Localização, telefone ou documentos", "Sua senha do Google"];
 
+// Recolhido por padrão: a conta mostra o essencial e quem quer detalhes abre.
 export default function DataWeKeep() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2">
-      <div>
-        <h3 className="font-semibold text-pine-900">O que guardamos</h3>
-        <ul className="mt-3 flex flex-col gap-3 text-sm">
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold text-pine-900">
+        <span>O que guardamos sobre você</span>
+        <span className="text-muted transition group-open:rotate-180" aria-hidden="true">
+          ▾
+        </span>
+      </summary>
+      <div className="mt-4 grid gap-5 sm:grid-cols-[1.4fr_1fr]">
+        <ul className="flex flex-col gap-2.5 text-sm">
           {KEPT.map((k) => (
             <li key={k.title} className="flex gap-3">
               <Icon name={k.icon} className="mt-0.5 size-5 shrink-0 text-pine-900" />
               <span>
-                <span className="block font-medium">{k.title}</span>
-                <span className="text-muted">{k.text}</span>
+                <strong className="font-medium">{k.title}.</strong> <span className="text-muted">{k.text}</span>
               </span>
             </li>
           ))}
         </ul>
+        <div>
+          <h3 className="text-sm font-semibold text-pine-900">O que não guardamos</h3>
+          <ul className="mt-2.5 flex flex-col gap-2 text-sm text-muted">
+            {NOT_KEPT.map((n) => (
+              <li key={n} className="flex items-center gap-3">
+                <Icon name="cadeado" className="size-5 shrink-0 text-pine-900" />
+                {n}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <div>
-        <h3 className="font-semibold text-pine-900">O que não guardamos</h3>
-        <ul className="mt-3 flex flex-col gap-2.5 text-sm text-muted">
-          {NOT_KEPT.map((n) => (
-            <li key={n} className="flex items-center gap-3">
-              <Icon name="cadeado" className="size-5 shrink-0 text-pine-900" />
-              {n}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+      <p className="mt-4 border-t border-line pt-3 text-sm text-muted">Exportar seus dados e excluir a conta ainda não estão disponíveis.</p>
+    </details>
   );
 }

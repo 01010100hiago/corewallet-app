@@ -52,6 +52,45 @@ describe("lançamentos: categorias, edição, exclusão e filtro por mês", { sk
       ...fields,
     });
 
+  describe("horário do lançamento", () => {
+    test("a hora gravada é a do servidor: o cliente não a escolhe, nem por corpo nem por cabeçalho", async () => {
+      const { agent } = await loggedAgent();
+      const before = Date.now();
+      const res = await agent
+        .post("/api/transactions")
+        .set("Date", "Mon, 01 Jan 2001 00:00:00 GMT")
+        .set("X-Client-Time", "2001-01-01T00:00:00Z")
+        .send({ type: "input", value: "10", description: "Relógio errado", createdAt: "2001-01-01T00:00:00Z", at: "2001-01-01T00:00:00Z", created_at: "2001-01-01T00:00:00Z" })
+        .expect(201);
+      const after = Date.now();
+      const created = new Date(res.body.createdAt).getTime();
+      assert.ok(created >= before - 1000 && created <= after + 1000, `createdAt ${res.body.createdAt} fora da janela do servidor`);
+      const saved = await Transaction.findById(res.body.id);
+      assert.equal(saved.createdAt.getTime(), created);
+    });
+
+    test("o evento do histórico leva a mesma hora do servidor, e editar não muda a hora do lançamento", async () => {
+      const { agent } = await loggedAgent();
+      const { body: t } = await add(agent, { type: "output", value: "10", description: "Hora fixa" }).expect(201);
+      await new Promise((r) => setTimeout(r, 30));
+      await agent.put(`/api/transactions/${t.id}`).send({ value: "11", description: "Hora fixa", category: "outros" }).expect(200);
+      const { events } = (await agent.get(`/api/transactions/${t.id}/history`)).body;
+      const created = events.find((e) => e.action === "created");
+      const edited = events.find((e) => e.action === "edited");
+      assert.equal(created.at, t.createdAt, "o evento 'criado' tem a hora do lançamento");
+      assert.ok(new Date(edited.at) > new Date(created.at), "a edição tem hora posterior");
+      assert.equal((await agent.get(`/api/transactions/${t.id}`)).body.createdAt, t.createdAt, "a hora do lançamento não muda ao editar");
+    });
+
+    test("a resposta da sessão leva a hora do servidor, para o front corrigir o relógio do aparelho", async () => {
+      const { agent } = await loggedAgent();
+      const before = Date.now();
+      const me = (await agent.get("/api/auth/me")).body;
+      const t = new Date(me.session.serverTime).getTime();
+      assert.ok(t >= before - 1000 && t <= Date.now() + 1000);
+    });
+  });
+
   describe("categorias", () => {
     test("cria com categoria e devolve ela; sem categoria vira outros", async () => {
       const { agent } = await loggedAgent();

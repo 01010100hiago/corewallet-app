@@ -167,10 +167,25 @@ test("o saldo e a barra do topo formam uma faixa verde só, com cantos discretos
     )
     .toEqual({ style: "solid", color: "rgb(31, 122, 93)" });
   await page.keyboard.press("Escape");
-  // Fora da página inicial a barra volta a ser branca.
+  // A barra é a MESMA em todas as telas: abrir "Nova despesa" ou "Minha conta" não a troca.
+  const barOf = (p) =>
+    p.evaluate(() => {
+      const header = document.querySelector("header");
+      const r = header.getBoundingClientRect();
+      const eye = header.querySelector("button[aria-pressed]").getBoundingClientRect();
+      const logo = header.querySelector("a").getBoundingClientRect();
+      return { top: r.top, height: Math.round(r.height), eyeX: Math.round(eye.x), logoX: Math.round(logo.x), bg: getComputedStyle(header.parentElement).backgroundColor };
+    });
+  const onHome = await barOf(page);
+  await page.getByRole("link", { name: /Nova despesa/ }).click();
+  await expect(page.getByRole("heading", { name: "Nova despesa" })).toBeVisible();
+  const onForm = await barOf(page);
   await page.goto("/account");
   await expect(page.getByRole("heading", { name: "Minha conta" })).toBeVisible();
-  expect(await page.evaluate(() => getComputedStyle(document.querySelector("header")).backgroundColor)).toBe("rgb(255, 255, 255)");
+  const onAccount = await barOf(page);
+  expect(onForm).toEqual(onHome);
+  expect(onAccount).toEqual(onHome);
+  expect(onHome.bg).toBe("rgb(14, 77, 60)");
 });
 
 test("arquivar tira da lista mas o saldo e os totais continuam; desarquivar traz de volta", async ({ page }) => {

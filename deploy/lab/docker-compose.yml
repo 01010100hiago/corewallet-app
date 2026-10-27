@@ -1,0 +1,75 @@
+# CoreWallet · ambiente do servidor lab (convenção: /srv/lab/projects/<nome>, rede externa "edge").
+# O código vem do GitHub e fica em app/ (git -C app pull --ff-only). Este compose é do lab:
+# o do repositório (app/docker-compose.yml) serve para rodar na máquina de desenvolvimento.
+name: corewallet
+
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: corewallet-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-corewallet}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina MONGO_ROOT_PASSWORD no arquivo .env}
+    volumes:
+      - dados-mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [default]          # banco NUNCA na rede edge, e sem porta publicada
+
+  api:
+    build:
+      context: ./app
+      dockerfile: api/Dockerfile
+    container_name: corewallet-api
+    restart: unless-stopped
+    environment:
+      PORT: "4000"
+      NODE_ENV: production
+      DATABASE_URI: mongodb://${MONGO_ROOT_USER:-corewallet}:${MONGO_ROOT_PASSWORD}@mongo:27017/corewallet?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://carteira.exemplo.com}
+      # Sempre atrás de HTTPS (Cloudflare): o cookie de sessão só vai por conexão segura.
+      COOKIE_SECURE: "true"
+      # Cadeia até a API: navegador -> Cloudflare -> cloudflared -> nginx (web) -> API.
+      # Com 2 saltos confiáveis (nginx e cloudflared) req.ip é o IP da pessoa, e o limite de
+      # tentativas conta por pessoa. Com 1, todo mundo teria o IP do cloudflared.
+      TRUST_PROXY: "2"
+      # Login com Google e captcha: vazios = desligados (só login por senha). Para ligar, ponha
+      # as chaves reais no .env (veja docs/DEPLOY.md no repositório).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [default]
+
+  web:
+    build:
+      context: ./app
+      dockerfile: web/Dockerfile
+    container_name: corewallet-web    # nome único: é assim que o cloudflared o encontra
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # Só no localhost do lab, para conferir no próprio servidor. Quem chega de fora é o túnel.
+      - "127.0.0.1:5191:8080"
+    networks: [default, edge]
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  dados-mongo:

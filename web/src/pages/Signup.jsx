@@ -15,7 +15,7 @@ import { Button } from "../components/Button.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import ProtectionDetails from "../components/ProtectionDetails.jsx";
 import GoogleSection from "../components/GoogleSection.jsx";
-import Turnstile from "../components/Turnstile.jsx";
+import Captcha from "../components/Captcha.jsx";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -39,7 +39,7 @@ export default function Signup() {
   async function onSubmit({ name, email, password: pass }) {
     setApiError("");
     if (captcha && !captchaToken) {
-      setApiError("Confirme que você não é um robô.");
+      setApiError(captcha.provider === "pow" ? "Aguarde a verificação de segurança terminar (leva poucos segundos) e tente de novo." : "Confirme que você não é um robô.");
       return;
     }
     try {
@@ -80,7 +80,7 @@ export default function Signup() {
         <PasswordField label="Senha" name="password" autoComplete="new-password" describedBy={PASSWORD_RULES_ID} register={register} error={errors.password} />
         <PasswordStrength password={password ?? ""} />
         <PasswordField label="Confirme a senha" noun="confirmação" name="confirmPassword" autoComplete="new-password" register={register} error={errors.confirmPassword} />
-        {captcha && <Turnstile siteKey={captcha.siteKey} onToken={setCaptchaToken} resetKey={captchaReset} />}
+        {captcha && <Captcha config={captcha} onToken={setCaptchaToken} resetKey={captchaReset} />}
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Criando…" : "Criar conta"}
         </Button>

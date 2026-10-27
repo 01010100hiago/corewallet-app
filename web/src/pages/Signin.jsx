@@ -13,7 +13,7 @@ import { Button } from "../components/Button.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import ProtectionDetails from "../components/ProtectionDetails.jsx";
 import GoogleSection from "../components/GoogleSection.jsx";
-import Turnstile from "../components/Turnstile.jsx";
+import Captcha from "../components/Captcha.jsx";
 import { usePageTitle } from "../lib/usePageTitle.js";
 
 export default function Signin() {
@@ -37,7 +37,7 @@ export default function Signin() {
   async function onSubmit(data) {
     setApiError("");
     if (captcha && !captchaToken) {
-      setApiError("Confirme que você não é um robô.");
+      setApiError(captcha.provider === "pow" ? "Aguarde a verificação de segurança terminar (leva poucos segundos) e tente de novo." : "Confirme que você não é um robô.");
       return;
     }
     try {
@@ -87,7 +87,7 @@ export default function Signin() {
             error={errors.email}
           />
           <PasswordField label="Senha" name="password" autoComplete="current-password" register={register} error={errors.password} />
-          {captcha && <Turnstile siteKey={captcha.siteKey} onToken={setCaptchaToken} resetKey={captchaReset} />}
+          {captcha && <Captcha config={captcha} onToken={setCaptchaToken} resetKey={captchaReset} />}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Entrando…" : "Entrar"}
           </Button>

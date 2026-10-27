@@ -10,6 +10,7 @@ export function createAuthRouter(deps, authMiddleware, limiters) {
   const router = Router();
 
   router.get("/config", controller.config);
+  router.get("/challenge", limiters.challenge, controller.challenge);
   // O captcha vem antes da validação, que descartaria o campo captchaToken.
   router.post("/signup", limiters.signup, captcha, validate(signupSchema), controller.signup);
   router.post("/signin", limiters.signin, limiters.signinAccount, captcha, validate(signinSchema), controller.signin);

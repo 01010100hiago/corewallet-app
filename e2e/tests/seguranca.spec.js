@@ -15,6 +15,7 @@ test("senha errada mostra a mesma mensagem genérica e não abre sessão", async
   await signUp(page, user);
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Senha", { exact: true }).fill("outra-senha-qualquer-1");
+  await expect(page.getByText(/Verificado: você é uma pessoa/)).toBeVisible();
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Email ou senha incorretos");
   expect(await cookie(context, "cw_session")).toBeUndefined();
@@ -83,6 +84,7 @@ test("aparelhos: encerrar a sessão de outro aparelho o derruba na hora", async 
   await other.goto("http://localhost:4173/signin");
   await other.getByLabel("Email").fill(user.email);
   await other.getByLabel("Senha", { exact: true }).fill(PASSWORD);
+  await expect(other.getByText(/Verificado: você é uma pessoa/)).toBeVisible();
   await other.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(other.getByTestId("balance")).toBeVisible();
 

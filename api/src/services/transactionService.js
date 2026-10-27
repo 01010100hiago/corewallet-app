@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DEFAULT_CATEGORY, monthRange } from "@corewallet/shared";
+import { DEFAULT_CATEGORY, dayRange, monthRange } from "@corewallet/shared";
 import Transaction from "../models/Transaction.js";
 import TransactionEvent from "../models/TransactionEvent.js";
 import * as categoryService from "./categoryService.js";
@@ -216,5 +216,56 @@ export async function listByUser(userId, { month, limit = LIST_LIMIT } = {}) {
       archivedCount: inMonth.archivedCount,
       categories: inMonth.categories,
     },
+  };
+}
+
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const STATUS_FILTER = {
+  all: { deletedAt: null },
+  active: { deletedAt: null, archivedAt: null },
+  archived: { deletedAt: null, archivedAt: { $ne: null } },
+  deleted: { deletedAt: { $ne: null } },
+};
+
+// A posição na lista é o par (data, id): "createdAt_id". Devolve null se o texto não for um cursor nosso.
+const encodeCursor = (t) => `${t.createdAt.getTime()}_${t._id}`;
+function decodeCursor(text) {
+  const m = /^(\d{10,15})_([0-9a-f]{24})$/.exec(text ?? "");
+  return m ? { at: new Date(Number(m[1])), id: new mongoose.Types.ObjectId(m[2]) } : null;
+}
+
+// Extrato do usuário com filtros, do mais novo para o mais antigo, por páginas. Os totais valem para o
+// filtro inteiro (não só para a página). Sempre filtra pelo dono.
+export async function search(userId, { q, type, category, status, from, to, limit, cursor }) {
+  const base = { userId: oid(userId), ...STATUS_FILTER[status] };
+  if (type) base.type = type;
+  if (category) base.category = category === DEFAULT_CATEGORY ? { $in: [DEFAULT_CATEGORY, null] } : category;
+  if (q) base.description = { $regex: escapeRegex(q), $options: "i" };
+  const range = {};
+  if (from) range.$gte = dayRange(from).start;
+  if (to) range.$lt = dayRange(to).end;
+  if (from || to) base.createdAt = range;
+
+  const filter = { ...base };
+  const position = cursor ? decodeCursor(cursor) : null;
+  if (cursor && !position) throw new TransactionError("Dados inválidos", 422, { cursor: "Cursor inválido" });
+  if (position) {
+    const before = { $or: [{ createdAt: { $lt: position.at } }, { createdAt: position.at, _id: { $lt: position.id } }] };
+    filter.$and = [before];
+  }
+
+  const [rows, sums, categories] = await Promise.all([
+    Transaction.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1).lean(),
+    Transaction.aggregate([{ $match: base }, { $group: { _id: "$type", total: { $sum: "$valueCents" }, count: { $sum: 1 } } }]),
+    categoryService.listByUser(userId),
+  ]);
+  const page = rows.slice(0, limit);
+  const sum = (t) => sums.find((r) => r._id === t)?.total ?? 0;
+  return {
+    transactions: page,
+    nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null,
+    totals: { count: sums.reduce((n, r) => n + r.count, 0), totalIn: sum("input"), totalOut: sum("output") },
+    categories,
   };
 }
