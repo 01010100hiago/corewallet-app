@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@corewallet/shared": "0.1.0",
-    "@hookform/resolvers": "^5.9.2",
+    "@hookform/resolvers": "^6.0.0",
     "axios": "^1.20.0",
     "dayjs": "^1.11.23",
     "js-cookie": "^3.0.8",
