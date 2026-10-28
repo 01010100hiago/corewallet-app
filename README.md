@@ -48,7 +48,7 @@ JavaScript em todo o projeto (sem TypeScript), com as bibliotecas do curso em ve
 Precisa de Node 24 (`nvm use`) e Docker.
 
 ```bash
-cp .env.example .env      # troque as senhas e o JWT_SECRET
+cp .env.example .env      # preencha MONGO_ROOT_PASSWORD (openssl rand -hex 16) e JWT_SECRET (openssl rand -hex 48)
 npm install
 ```
 

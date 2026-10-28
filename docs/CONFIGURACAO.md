@@ -39,6 +39,8 @@ dos outros); valor **maior** deixa o IP ser falsificado.
   `CF-Connecting-IP`, que a Cloudflare escreve sozinha, e só o aceita de redes privadas (o cloudflared). De qualquer
   outro lugar o cabeçalho é ignorado, então ninguém falsifica o próprio IP para fugir do limite ou para travar o de
   outra pessoa. Sem esse arquivo, atrás do túnel, todos apareceriam com o IP do cloudflared.
+  **Use só nesse cenário**, com a porta do site fechada para a rede local: se o nginx for alcançável direto por
+  aparelhos da rede (que também são "redes privadas"), qualquer um deles pode forjar o IP.
 
 ## Login com Google
 

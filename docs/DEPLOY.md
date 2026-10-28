@@ -1,7 +1,7 @@
 # Publicar
 
 Guia para subir o CoreWallet em um servidor Linux com Docker, atrás de um túnel da Cloudflare. A configuração do
-`.env` está em [Configuração](CONFIGURACAO.md); o exemplo real do autor está em [LAB.md](LAB.md).
+`.env` está em [Configuração](CONFIGURACAO.md); um exemplo de servidor caseiro está em [LAB.md](LAB.md).
 
 ## Desenho
 
