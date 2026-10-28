@@ -108,8 +108,11 @@ export const twoFactorDisableSchema = z.object({
   code: secondFactorCode,
 });
 
+// Confirmar o email pede o link E a senha da conta: quem cadastrou o email de outra pessoa escolheu a senha,
+// e a vítima, que recebe o link, não a conhece. Sem isso, clicar no link entregaria a conta ao invasor.
 export const emailTokenSchema = z.object({
   token: z.string({ error: "Link inválido" }).min(20, "Link inválido").max(100, "Link inválido"),
+  password: z.string({ error: "A senha é obrigatória" }).min(1, "A senha é obrigatória").refine(fitsBcrypt, "Senha incorreta"),
 });
 
 export const resendEmailSchema = z.object({ email });

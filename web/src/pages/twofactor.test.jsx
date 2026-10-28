@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from "vitest";
 import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { render } from "@testing-library/react";
 import { api } from "../lib/api.js";
 import { renderPage, fakeAuth } from "../test/render.jsx";
@@ -177,20 +177,80 @@ describe("página do link de confirmação", () => {
       </MemoryRouter>
     );
 
-  test("confirma uma vez só (mesmo com o efeito rodando duas vezes), avisa e oferece entrar", async () => {
+  const confirm = async (password = "cavalo-azul-77") => {
+    await userEvent.type(await screen.findByLabelText("Senha da conta"), password);
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar email" }));
+  };
+
+  test("o link só abre o formulário: nada é enviado até a pessoa digitar a senha da conta", async () => {
     const post = vi.spyOn(api, "post").mockResolvedValue({ data: { verified: true } });
     open("?token=abcdefghijklmnopqrstuvwxyz-ok1");
+    expect(await screen.findByLabelText("Senha da conta")).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+    await confirm();
     expect(await screen.findByText(/Email confirmado/)).toBeInTheDocument();
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith("/auth/email/verify", { token: "abcdefghijklmnopqrstuvwxyz-ok1" });
+    expect(post).toHaveBeenCalledWith("/auth/email/verify", { token: "abcdefghijklmnopqrstuvwxyz-ok1", password: "cavalo-azul-77" });
     expect(screen.getByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/signin");
   });
 
-  test("link vencido ou já usado mostra o motivo e o caminho para pedir outro", async () => {
+  test("senha errada mostra o motivo e deixa tentar de novo com o mesmo link", async () => {
+    const post = vi
+      .spyOn(api, "post")
+      .mockRejectedValueOnce({ response: { status: 403, data: { code: "wrong_password", message: "Senha incorreta. Use a senha que foi escolhida ao criar a conta." } } })
+      .mockResolvedValueOnce({ data: { verified: true } });
+    open("?token=abcdefghijklmnopqrstuvwxyz-ok1");
+    await confirm("senha-errada-1");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Senha incorreta");
+    expect(screen.getByLabelText("Senha da conta")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Senha da conta"));
+    await confirm();
+    expect(await screen.findByText(/Email confirmado/)).toBeInTheDocument();
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenLastCalledWith("/auth/email/verify", { token: "abcdefghijklmnopqrstuvwxyz-ok1", password: "cavalo-azul-77" });
+  });
+
+  test("senha vazia não chama a API", async () => {
+    const post = vi.spyOn(api, "post");
+    open("?token=abcdefghijklmnopqrstuvwxyz-ok1");
+    await userEvent.click(await screen.findByRole("button", { name: "Confirmar email" }));
+    expect(await screen.findByText("A senha é obrigatória")).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test("link vencido ou já usado mostra o motivo e o caminho para pedir outro (sem formulário)", async () => {
     vi.spyOn(api, "post").mockRejectedValue({ response: { status: 400, data: { message: "Link inválido ou vencido. Peça um novo email de confirmação." } } });
     open("?token=abcdefghijklmnopqrstuvwxyz-bad");
+    await confirm();
     expect(await screen.findByRole("alert")).toHaveTextContent("inválido ou vencido");
+    expect(screen.queryByLabelText("Senha da conta")).toBeNull();
     expect(screen.getByRole("link", { name: "Ir para o login" })).toBeInTheDocument();
+  });
+
+  test("o token sai da barra de endereço assim que a página abre", async () => {
+    vi.spyOn(api, "post");
+    const Where = () => <p data-testid="where">{useLocation().pathname + useLocation().search}</p>;
+    render(
+      <MemoryRouter initialEntries={["/verify-email?token=abcdefghijklmnopqrstuvwxyz-ok1"]}>
+        <Where />
+        <Routes>
+          <Route path="/verify-email" element={<VerifyEmail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByLabelText("Senha da conta")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent(/^\/verify-email$/));
+  });
+
+  test.each([
+    ["limite de pedidos (429)", { response: { status: 429, data: { message: "Muitas tentativas. Tente de novo mais tarde." } } }, "Muitas tentativas"],
+    ["falha de rede", { message: "Network Error" }, "conectar"],
+  ])("%s não gasta o link: o formulário continua para tentar de novo", async (_name, failure, text) => {
+    vi.spyOn(api, "post").mockRejectedValue(failure);
+    open("?token=abcdefghijklmnopqrstuvwxyz-ok1");
+    await confirm();
+    expect(await screen.findByRole("alert")).toHaveTextContent(new RegExp(text));
+    expect(screen.getByLabelText("Senha da conta")).toBeInTheDocument();
   });
 
   test("sem token na URL não chama a API", async () => {

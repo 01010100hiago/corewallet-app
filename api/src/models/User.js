@@ -38,9 +38,14 @@ const userSchema = new Schema(
     // Só os hashes (SHA-256) dos códigos de recuperação; cada um vale uma vez.
     recoveryCodes: { type: [String], select: false, default: undefined },
     // Confirmação do email: só o hash do link fica no banco.
+    // Conta de senha criada com a confirmação ligada e ainda não confirmada: só ela pode ser assumida por
+    // um novo cadastro do mesmo email. Contas antigas nunca têm este marcador.
+    pendingSignup: { type: Boolean, select: false },
     emailVerifyHash: { type: String, select: false },
     emailVerifyExpires: { type: Date, select: false },
     emailVerifySentAt: { type: Date, select: false },
+    // Senhas erradas digitadas neste link: ao passar do limite o link é queimado.
+    emailVerifyFails: { type: Number, select: false },
     // false até a pessoa confirmar o nome na tela "Complete seu perfil".
     profileComplete: { type: Boolean, default: true },
   },

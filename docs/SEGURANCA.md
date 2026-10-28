@@ -21,7 +21,7 @@ faz de verdade; o que ainda não existe está em [Limites conhecidos](LIMITES.md
   senhas comuns recusadas. O medidor da tela usa as mesmas regras da API.
 - **Verificação em duas etapas (TOTP)** com códigos de recuperação, segredo cifrado e trava por conta. Veja
   [Configuração](CONFIGURACAO.md#verificação-em-duas-etapas).
-- **Confirmação de email** por link de uso único, e **verificação anti-robô** no cadastro e no login. Veja
+- **Confirmação de email** por link de uso único que também exige a senha da conta (quem cadastra o email de outra pessoa não consegue fazê-la confirmar a conta dele), e **verificação anti-robô** no cadastro e no login. Veja
   [Configuração](CONFIGURACAO.md).
 - **Login sem revelar quais emails existem:** mesma resposta e mesmo tempo para email errado e senha errada.
 - **Limite de tentativas** (`express-rate-limit`): por IP em login, cadastro, Google e renovação; no login também por

@@ -86,15 +86,25 @@ MAIL_FROM=CoreWallet <nao-responda@seudominio.com>
 ```
 
 - O cadastro por senha passa a enviar um link de uso único, válido por 24 horas, e o login só abre depois da confirmação.
-- **Contas que já existem** ficam como "não confirmadas" e deixariam de entrar. Antes de ligar, marque-as:
+- Com a confirmação **desligada** (sem SMTP, ou `EMAIL_VERIFICATION=off`), o cadastro já nasce ativo e entra direto;
+  essas contas continuam entrando depois que você ligar a confirmação. Só as criadas por versões antigas ficam como
+  "não confirmadas" e deixariam de entrar; antes de ligar, marque-as:
 
   ```bash
   docker compose exec mongo mongosh -u USUARIO -p SENHA --authenticationDatabase admin corewallet \
     --eval 'db.users.updateMany({provider:"password"},{$set:{emailVerified:true}})'
   ```
 
-- Quem cadastra um email que outra pessoa "reservou" sem nunca confirmar assume a conta, então ninguém bloqueia
-  o email dos outros.
+- **O link não confirma sozinho: a página pede a senha da conta.** Quem cadastra o email de outra pessoa escolhe a
+  senha, então a vítima, mesmo clicando no link que recebeu, não a conhece e não consegue ativar a conta do invasor.
+- Quem cadastra um email que outra pessoa "reservou" sem nunca confirmar assume a conta (só contas criadas com a
+  confirmação ligada e nunca confirmadas; as antigas, mesmo que recebam um link, não podem ser assumidas), então
+  ninguém bloqueia o email dos outros.
+- Cada link aceita 5 senhas erradas; depois morre e é preciso pedir outro (a tela de login oferece).
+- Contas pendentes de **antes** desta regra (sem o marcador `pendingSignup`) não podem ser assumidas por um novo
+  cadastro. Se existirem, apague-as à mão (`db.users.deleteMany({provider:"password", emailVerified:{$ne:true}})`,
+  só as que nunca entraram) e, ao **desligar** a exigência de confirmação, apague também as pendentes em vez de
+  marcá-las como confirmadas.
 - A senha do SMTP é segredo: só no `.env` do servidor, nunca no repositório.
 
 ## Verificação em duas etapas

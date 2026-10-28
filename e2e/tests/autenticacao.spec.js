@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { newUser, register, signIn } from "./helpers.js";
+import { newUser, register, signIn, confirmEmail } from "./helpers.js";
 import { confirmationLink } from "./mail.js";
 import { totpCode } from "./totp.js";
 
@@ -37,11 +37,18 @@ test("confirmação de email: sem confirmar não entra; o link confirma uma vez 
   await expect(page.getByRole("button", { name: "Reenviar o email de confirmação" })).toBeVisible();
   await expect(page.getByTestId("balance")).toHaveCount(0);
 
-  // O link confirma; o token sai da barra de endereço; usar o link de novo é recusado.
+  // O link sozinho não confirma: pede a senha da conta, e o token sai da barra de endereço. Senha errada
+  // é recusada e o link continua valendo; com a senha certa confirma; usar o link de novo é recusado.
   await page.goto(link);
-  await expect(page.getByText(/Email confirmado/)).toBeVisible();
   await expect(page).toHaveURL(/\/verify-email$/);
+  await expect(page.getByText(/Email confirmado/)).toHaveCount(0);
+  await confirmEmail(page, "outra-senha-qualquer-1");
+  await expect(page.getByRole("alert")).toContainText("Senha incorreta");
+  await page.getByLabel("Senha da conta").fill("");
+  await confirmEmail(page, user.password);
+  await expect(page.getByText(/Email confirmado/)).toBeVisible();
   await page.goto(link);
+  await confirmEmail(page, user.password);
   await expect(page.getByRole("alert")).toContainText("inválido ou vencido");
 
   await signIn(page, user);
@@ -59,6 +66,7 @@ test("link de confirmação adulterado é recusado", async ({ page }) => {
   const link = await confirmationLink(user.email);
   const tampered = link.slice(0, -4) + (link.endsWith("AAAA") ? "BBBB" : "AAAA");
   await page.goto(tampered);
+  await confirmEmail(page, user.password);
   await expect(page.getByRole("alert")).toContainText("inválido ou vencido");
 });
 

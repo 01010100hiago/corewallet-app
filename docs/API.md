@@ -29,7 +29,7 @@ dados também repetem o cookie `cw_csrf` no cabeçalho `X-CSRF-Token` (veja [Seg
 | `POST /auth/2fa/setup` | Começa a ativação (pede a senha) e devolve segredo e QR code |
 | `POST /auth/2fa/enable` | Confirma com o primeiro código e devolve os códigos de recuperação |
 | `POST /auth/2fa/disable` | Desativa (senha e código) |
-| `POST /auth/email/verify` | Confirma o email pelo link |
+| `POST /auth/email/verify` | Confirma o email: o link (`token`) e a senha da conta (`password`). Senha errada: 403 `wrong_password`, sem gastar o link |
 | `POST /auth/email/resend` | Pede um novo link (a resposta é sempre a mesma, exista a conta ou não) |
 
 ## Lançamentos

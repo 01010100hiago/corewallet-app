@@ -20,26 +20,31 @@ export class AuthError extends Error {
 // Conta de senha criada COM a confirmação de email ligada e nunca confirmada: ninguém entrou nela
 // (o login exige a confirmação), então não tem dado nenhum e quem diz ser o dono do email pode
 // assumi-la. Sem isso, alguém poderia "reservar" o email dos outros. Contas antigas (de antes da
-// confirmação existir) não têm o link pendente e nunca entram nessa regra.
-const SQUATTED = { provider: "password", emailVerified: { $ne: true }, emailVerifyHash: { $exists: true } };
+// confirmação existir) não têm o marcador `pendingSignup` e nunca entram nessa regra, mesmo que recebam um
+// link de confirmação depois.
+const SQUATTED = { provider: "password", emailVerified: { $ne: true }, pendingSignup: true };
 
-// `takeoverUnverified`: a confirmação de email está ligada, então um cadastro novo pode assumir uma
-// conta reservada e nunca confirmada (o link novo é emitido pelo chamador).
-export async function signup({ name, email, password }, { takeoverUnverified = false } = {}) {
+// `verificationRequired`: a confirmação de email está ligada. Então a conta nasce pendente (só abre depois do
+// link) e um cadastro novo pode assumir uma reservada e nunca confirmada (o link é emitido pelo chamador).
+// Desligada, o cadastro já nasce ativo: não há como confirmar, e a conta não pode ficar pendente para sempre.
+export async function signup({ name, email, password }, { verificationRequired = false } = {}) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   try {
-    const user = await User.create({ name, email, passwordHash });
+    const user = await User.create({ name, email, passwordHash, emailVerified: !verificationRequired, ...(verificationRequired && { pendingSignup: true }) });
     return user;
   } catch (err) {
     // Índice único do email (cobre também duas requisições ao mesmo tempo)
     if (err?.code !== 11000) throw err;
-    if (takeoverUnverified) {
+    if (verificationRequired) {
       const taken = await User.findOneAndUpdate({ email, ...SQUATTED }, { $set: { name, passwordHash } }, { returnDocument: "after" });
       if (taken) return taken;
     }
     throw new AuthError("Este email já está cadastrado", 409);
   }
 }
+
+// Confere uma senha contra o hash guardado (gasta o mesmo tempo com ou sem hash).
+export const passwordMatches = (hash, password) => bcrypt.compare(password, hash ?? DUMMY_HASH);
 
 export async function signin({ email, password }) {
   // Conta criada pelo Google não tem senha: cai no mesmo erro genérico (e gasta o

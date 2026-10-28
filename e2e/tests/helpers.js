@@ -10,6 +10,12 @@ export function newUser(label = "Pessoa") {
   return { name: `${label} Teste`, email: `e2e-${id}@exemplo.com`, password: PASSWORD };
 }
 
+// A página do link pede a senha da conta antes de confirmar.
+export async function confirmEmail(page, password) {
+  await page.getByLabel("Senha da conta").fill(password);
+  await page.getByRole("button", { name: "Confirmar email" }).click();
+}
+
 export async function signUp(page, user) {
   await page.goto("/signup");
   await page.getByLabel("Nome completo").fill(user.name);
@@ -21,6 +27,7 @@ export async function signUp(page, user) {
   // A confirmação de email é exigida: abre o link que a API "enviou" (está no arquivo de emails).
   await expect(page.getByRole("heading", { name: "Confirme seu email" })).toBeVisible();
   await page.goto(await confirmationLink(user.email));
+  await confirmEmail(page, user.password);
   await expect(page.getByText(/Email confirmado/)).toBeVisible();
   await page.goto("/signin");
 }

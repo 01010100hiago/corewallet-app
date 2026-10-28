@@ -98,7 +98,7 @@ export function createAuthController({ env, captcha, google, emailVerification, 
     },
 
     async signup(req, res) {
-      const user = await authService.signup(req.body, { takeoverUnverified: Boolean(env.emailVerificationRequired) });
+      const user = await authService.signup(req.body, { verificationRequired: Boolean(env.emailVerificationRequired) });
       if (!env.emailVerificationRequired) return res.status(201).json(publicUser(user));
       // Falha no envio não desfaz o cadastro: a tela oferece reenviar.
       const verificationSent = await emailVerification.issue(user);
@@ -123,9 +123,12 @@ export function createAuthController({ env, captcha, google, emailVerification, 
     },
 
     async verifyEmail(req, res) {
-      if (!(await emailVerification.confirm(req.body.token))) {
-        return res.status(400).json({ message: "Link inválido ou vencido. Peça um novo email de confirmação." });
+      const result = await emailVerification.confirm(req.body.token, req.body.password);
+      if (result === "wrong_password") {
+        // 403 (não 401): o front não deve tentar renovar a sessão por isso.
+        throw new AuthError("Senha incorreta. Use a senha que foi escolhida ao criar a conta.", 403, "wrong_password");
       }
+      if (result !== "ok") return res.status(400).json({ message: "Link inválido ou vencido. Peça um novo email de confirmação." });
       res.json({ verified: true });
     },
 
