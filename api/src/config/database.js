@@ -6,10 +6,14 @@ const SERVER_SELECTION_TIMEOUT_MS = 5_000; // achar um servidor do Mongo
 const CONNECT_TIMEOUT_MS = 5_000;
 const SOCKET_TIMEOUT_MS = 10_000; // uma resposta do Mongo
 const QUERY_MAX_TIME_MS = 8_000; // o Mongo para a consulta sozinho, sem esperar o socket cair
+// Sem conexão, o Mongoose segura as operações esperando reconectar. 10 s (o padrão) é mais que o tempo que o
+// navegador espera, e cada pedido da API (inclusive o limite de tentativas) passa pelo banco.
+const BUFFER_TIMEOUT_MS = 2_000;
 
 export async function connectDb(uri) {
   mongoose.set("strictQuery", true);
   mongoose.set("maxTimeMS", QUERY_MAX_TIME_MS);
+  mongoose.set("bufferTimeoutMS", BUFFER_TIMEOUT_MS);
   await mongoose.connect(uri, {
     serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
     connectTimeoutMS: CONNECT_TIMEOUT_MS,

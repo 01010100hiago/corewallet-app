@@ -9,9 +9,10 @@ O que ainda não existe ou funciona de forma simplificada.
 - O limite de tentativas por conta pode ser usado para travar o login de alguém por alguns minutos, mas só a partir do
   mesmo IP da pessoa, porque a chave é IP + email.
 - Não há limite por conta somando vários IPs. Com 2FA ativo, a trava por conta compensa.
-- **Limites e controles ficam na memória da API:** os de tentativa, os desafios do 2FA e os desafios já usados da
-  verificação automática (até 20 mil). Servem para uma instância; com várias, troque por Redis. Reiniciar a API zera
-  essa contagem, mas os desafios continuam vencendo em 5 minutos, e a trava de 15 minutos do 2FA fica no banco.
+- **Os contadores de limite, os desafios do 2FA e os desafios já usados da verificação automática ficam no Mongo**,
+  então várias cópias da API dividem o mesmo estado e reiniciar a API não zera nada. O custo é uma ida ao banco por
+  pedido limitado. Se o banco estiver fora do ar, o limite de tentativas **deixa passar** (sem banco nem o login
+  funciona), e a verificação automática **recusa** (falha fechada).
 - A lista de dispositivos mostra o IP pela metade e navegador e sistema lidos do `User-Agent`, uma leitura aproximada.
 
 ## Datas e valores

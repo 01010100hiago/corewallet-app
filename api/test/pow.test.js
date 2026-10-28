@@ -5,6 +5,7 @@ import request from "supertest";
 import { createApp } from "../src/app.js";
 import { createPow } from "../src/services/powService.js";
 import { createPowCaptcha } from "../src/services/captchaService.js";
+import { createMemoryClaimStore } from "../src/lib/claimStores.js";
 import { testEnv } from "../support/helpers.js";
 
 const SECRET = "segredo-do-teste-com-bastante-tamanho-0123456789";
@@ -19,14 +20,15 @@ export function solve(challenge, tamper = {}) {
 }
 const token = (payload) => Buffer.from(JSON.stringify(payload)).toString("base64");
 
-describe("verificação automática (prova de trabalho)", () => {
-  const make = (over = {}) => {
+describe("verificação automática (prova de trabalho)", async () => {
+  const make = ({ maxUsed, ...over } = {}) => {
     const clock = { t: 1_800_000_000_000 };
-    const pow = createPow({ secret: SECRET, maxNumber: 500, now: () => clock.t, ...over });
-    return { pow, clock };
+    const store = createMemoryClaimStore({ maxUsed, now: () => clock.t });
+    const pow = createPow({ secret: SECRET, maxNumber: 500, now: () => clock.t, store, ...over });
+    return { pow, clock, store };
   };
 
-  test("o desafio tem o formato esperado, expira e é assinado", () => {
+  test("o desafio tem o formato esperado, expira e é assinado", async () => {
     const { pow, clock } = make();
     const c = pow.issue();
     assert.deepEqual(Object.keys(c).sort(), ["algorithm", "challenge", "maxnumber", "salt", "signature", "ttl"]);
@@ -41,54 +43,54 @@ describe("verificação automática (prova de trabalho)", () => {
     assert.ok(!JSON.stringify(c).includes('"number"'));
   });
 
-  test("resolvido corretamente vale; cada desafio é diferente", () => {
+  test("resolvido corretamente vale; cada desafio é diferente", async () => {
     const { pow } = make();
     const a = pow.issue();
     const b = pow.issue();
     assert.notEqual(a.challenge, b.challenge);
     assert.notEqual(a.salt, b.salt);
-    assert.equal(pow.verify(solve(a)), "ok");
-    assert.equal(pow.verify(solve(b)), "ok");
+    assert.equal(await pow.verify(solve(a)), "ok");
+    assert.equal(await pow.verify(solve(b)), "ok");
   });
 
-  test("só vale uma vez (repetir o mesmo token é recusado)", () => {
-    const { pow } = make();
+  test("só vale uma vez (repetir o mesmo token é recusado)", async () => {
+    const { pow, store } = make();
     const t = solve(pow.issue());
-    assert.equal(pow.verify(t), "ok");
-    assert.equal(pow.verify(t), "invalid");
-    assert.equal(pow.usedCount, 1);
+    assert.equal(await pow.verify(t), "ok");
+    assert.equal(await pow.verify(t), "invalid");
+    assert.equal(store.size, 1);
   });
 
-  test("recusa número errado, desafio adulterado, assinatura de outro segredo e campos trocados", () => {
-    const { pow } = make();
+  test("recusa número errado, desafio adulterado, assinatura de outro segredo e campos trocados", async () => {
+    const { pow, store } = make();
     const c = pow.issue();
     const good = JSON.parse(Buffer.from(solve(c), "base64").toString());
-    assert.equal(pow.verify(token({ ...good, number: (good.number + 1) % 501 })), "invalid", "número errado");
-    assert.equal(pow.verify(token({ ...good, signature: "0".repeat(64) })), "invalid", "assinatura inventada");
+    assert.equal(await pow.verify(token({ ...good, number: (good.number + 1) % 501 })), "invalid", "número errado");
+    assert.equal(await pow.verify(token({ ...good, signature: "0".repeat(64) })), "invalid", "assinatura inventada");
     const other = createPow({ secret: "outro-segredo-completamente-diferente-123456789", maxNumber: 500, now: () => 1_800_000_000_000 });
-    assert.equal(other.verify(solve(c)), "invalid", "desafio de outro servidor");
+    assert.equal(await other.verify(solve(c)), "invalid", "desafio de outro servidor");
     // Troca o sal por outro com a mesma validade: hash e assinatura deixam de bater.
-    assert.equal(pow.verify(token({ ...good, salt: `${"a".repeat(32)}?e=${good.salt.split("?e=")[1]}` })), "invalid");
+    assert.equal(await pow.verify(token({ ...good, salt: `${"a".repeat(32)}?e=${good.salt.split("?e=")[1]}` })), "invalid");
     // Troca o desafio por um que ela mesma calculou, sem assinatura do servidor.
     const forgedSalt = `${"b".repeat(32)}?e=${good.salt.split("?e=")[1]}`;
     const forged = sha256(forgedSalt + 7);
-    assert.equal(pow.verify(token({ algorithm: "SHA-256", salt: forgedSalt, challenge: forged, number: 7, signature: good.signature })), "invalid");
-    assert.equal(pow.verify(token({ algorithm: "SHA-256", salt: forgedSalt, challenge: forged, number: 7, signature: "f".repeat(64) })), "invalid");
-    assert.equal(pow.usedCount, 0, "nada recusado fica marcado como usado");
-    assert.equal(pow.verify(solve(c)), "ok", "o desafio de verdade continua válido");
+    assert.equal(await pow.verify(token({ algorithm: "SHA-256", salt: forgedSalt, challenge: forged, number: 7, signature: good.signature })), "invalid");
+    assert.equal(await pow.verify(token({ algorithm: "SHA-256", salt: forgedSalt, challenge: forged, number: 7, signature: "f".repeat(64) })), "invalid");
+    assert.equal(store.size, 0, "nada recusado fica marcado como usado");
+    assert.equal(await pow.verify(solve(c)), "ok", "o desafio de verdade continua válido");
   });
 
-  test("vencido é recusado, e o tempo é o do servidor", () => {
+  test("vencido é recusado, e o tempo é o do servidor", async () => {
     const { pow, clock } = make();
     const t = solve(pow.issue());
     clock.t += 5 * 60_000 - 1;
-    assert.equal(pow.verify(t), "ok", "ainda dentro do prazo");
+    assert.equal(await pow.verify(t), "ok", "ainda dentro do prazo");
     const late = solve(pow.issue());
     clock.t += 5 * 60_000 + 1;
-    assert.equal(pow.verify(late), "invalid", "passou do prazo");
+    assert.equal(await pow.verify(late), "invalid", "passou do prazo");
   });
 
-  test("número fora do intervalo, tipos errados e lixo são recusados sem estourar", () => {
+  test("número fora do intervalo, tipos errados e lixo são recusados sem estourar", async () => {
     const { pow } = make();
     const good = JSON.parse(Buffer.from(solve(pow.issue()), "base64").toString());
     const bad = [
@@ -107,22 +109,22 @@ describe("verificação automática (prova de trabalho)", () => {
       "texto",
       42,
     ];
-    for (const payload of bad) assert.equal(pow.verify(token(payload)), "invalid", JSON.stringify(payload));
-    for (const raw of ["", "não-é-base64!!", Buffer.from("{ quebrado").toString("base64"), "a".repeat(5000)]) assert.equal(pow.verify(raw), "invalid");
+    for (const payload of bad) assert.equal(await pow.verify(token(payload)), "invalid", JSON.stringify(payload));
+    for (const raw of ["", "não-é-base64!!", Buffer.from("{ quebrado").toString("base64"), "a".repeat(5000)]) assert.equal(await pow.verify(raw), "invalid");
   });
 
-  test("passou do teto de desafios guardados: falha fechada, e os vencidos liberam espaço", () => {
-    const { pow, clock } = make({ maxUsed: 5 });
-    for (let i = 0; i < 5; i++) assert.equal(pow.verify(solve(pow.issue())), "ok");
-    assert.equal(pow.usedCount, 5);
+  test("passou do teto de desafios guardados: falha fechada, e os vencidos liberam espaço", async () => {
+    const { pow, clock, store } = make({ maxUsed: 5 });
+    for (let i = 0; i < 5; i++) assert.equal(await pow.verify(solve(pow.issue())), "ok");
+    assert.equal(store.size, 5);
     const extra = solve(pow.issue());
-    assert.equal(pow.verify(extra), "unavailable", "cheio: não esquece um desafio usado para abrir vaga");
-    assert.equal(pow.usedCount, 5);
+    assert.equal(await pow.verify(extra), "unavailable", "cheio: não esquece um desafio usado para abrir vaga");
+    assert.equal(store.size, 5);
     // Quando os usados vencem (eles já não valem mesmo), sobra espaço e o desafio novo passa.
     clock.t += 5 * 60_000 + 10;
     const fresh = solve(pow.issue());
-    assert.equal(pow.verify(fresh), "ok");
-    assert.equal(pow.usedCount, 1, "os vencidos foram varridos");
+    assert.equal(await pow.verify(fresh), "ok");
+    assert.equal(store.size, 1, "os vencidos foram varridos");
   });
 
   test("createPowCaptcha segue a mesma interface do Turnstile", async () => {
@@ -138,15 +140,17 @@ describe("verificação automática (prova de trabalho)", () => {
 
 describe("rotas com a verificação automática (sem banco)", () => {
   const env = { ...testEnv, pow: { secret: SECRET, maxNumber: 300 } };
+  // Sem banco: contadores e desafios usados na memória do processo.
+  const memory = () => ({ powStore: createMemoryClaimStore(), rateLimitStoreFor: () => undefined });
 
   test("GET /auth/config anuncia o provedor, sem segredo", async () => {
-    const res = await request(createApp(env)).get("/api/auth/config").expect(200);
+    const res = await request(createApp(env, memory())).get("/api/auth/config").expect(200);
     assert.deepEqual(res.body.captcha, { provider: "pow" });
     assert.ok(!JSON.stringify(res.body).includes(SECRET));
   });
 
   test("GET /auth/challenge devolve um desafio novo a cada pedido, sem cache", async () => {
-    const app = createApp(env);
+    const app = createApp(env, memory());
     const a = await request(app).get("/api/auth/challenge").expect(200);
     const b = await request(app).get("/api/auth/challenge").expect(200);
     assert.notEqual(a.body.challenge, b.body.challenge);
@@ -168,7 +172,7 @@ describe("rotas com a verificação automática (sem banco)", () => {
   });
 
   test("cadastro e login exigem o token; token errado é 403; sem token é 400", async () => {
-    const app = createApp(env);
+    const app = createApp(env, memory());
     const body = { name: "Ana Lima", email: "ana@exemplo.com", password: "cavalo-azul-77" };
     assert.equal((await request(app).post("/api/auth/signup").send(body)).status, 400);
     assert.equal((await request(app).post("/api/auth/signin").send({ email: body.email, password: body.password })).status, 400);
@@ -179,7 +183,7 @@ describe("rotas com a verificação automática (sem banco)", () => {
   });
 
   test("o limite de pedidos de desafio vale por IP", async () => {
-    const app = createApp({ ...env, rateLimits: { challenge: { windowMs: 60_000, limit: 3 } } });
+    const app = createApp({ ...env, rateLimits: { challenge: { windowMs: 60_000, limit: 3 } } }, memory());
     for (let i = 0; i < 3; i++) await request(app).get("/api/auth/challenge").expect(200);
     const blocked = await request(app).get("/api/auth/challenge");
     assert.equal(blocked.status, 429);

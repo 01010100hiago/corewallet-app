@@ -25,7 +25,8 @@ faz de verdade; o que ainda não existe está em [Limites conhecidos](LIMITES.md
   [Configuração](CONFIGURACAO.md).
 - **Login sem revelar quais emails existem:** mesma resposta e mesmo tempo para email errado e senha errada.
 - **Limite de tentativas** (`express-rate-limit`): por IP em login, cadastro, Google e renovação; no login também por
-  IP + email, contando só os erros, então quem acerta a senha não gasta o limite.
+  IP + email, contando só os erros, então quem acerta a senha não gasta o limite. Os contadores ficam no Mongo, com
+  incremento atômico, e por isso valem entre várias cópias da API.
 
 ## Requisições
 

@@ -1,11 +1,8 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { createMemoryClaimStore } from "../lib/claimStores.js";
 
 export const POW_DEFAULT_MAX_NUMBER = 100_000;
 export const POW_TTL_MS = 5 * 60 * 1000;
-// Teto de desafios usados guardados na memória (cada um vive 5 minutos). Passou disso, a
-// verificação falha fechada em vez de esquecer um desafio e deixar reusá-lo.
-const MAX_USED = 20_000;
-
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const same = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
@@ -19,18 +16,11 @@ const HEX64 = /^[0-9a-f]{64}$/;
 // tentativas da API e, quando existir, o Turnstile da Cloudflare completam a defesa.
 //
 // O que impede trapaça: o desafio é assinado (HMAC) com um segredo do servidor, tem validade e só
-// vale uma vez. Os desafios usados ficam na memória: serve para uma instância, como o limite de tentativas.
-export function createPow({ secret, maxNumber = POW_DEFAULT_MAX_NUMBER, ttlMs = POW_TTL_MS, maxUsed = MAX_USED, now = Date.now }) {
-  const used = new Map(); // desafio -> quando expira (a ordem de inserção já é a ordem de expiração)
+// vale uma vez. Os desafios usados ficam em `store` (no Mongo em produção, para valer entre instâncias
+// da API; na memória, por padrão, para testes e para uma instância só).
+export function createPow({ secret, maxNumber = POW_DEFAULT_MAX_NUMBER, ttlMs = POW_TTL_MS, store, now = Date.now }) {
+  const claims = store ?? createMemoryClaimStore({ now });
   const sign = (salt, challenge) => createHmac("sha256", secret).update(`${salt}|${challenge}`).digest("hex");
-
-  function sweep() {
-    const t = now();
-    for (const [challenge, expires] of used) {
-      if (expires > t) break;
-      used.delete(challenge);
-    }
-  }
 
   return {
     maxNumber,
@@ -42,7 +32,7 @@ export function createPow({ secret, maxNumber = POW_DEFAULT_MAX_NUMBER, ttlMs = 
     },
 
     // Devolve "ok", "invalid" ou "unavailable" (mesma convenção do Turnstile).
-    verify(token) {
+    async verify(token) {
       let p;
       try {
         p = JSON.parse(Buffer.from(token, "base64").toString("utf8"));
@@ -63,15 +53,9 @@ export function createPow({ secret, maxNumber = POW_DEFAULT_MAX_NUMBER, ttlMs = 
       if (!same(signature, sign(salt, challenge))) return "invalid";
       if (sha256(salt + number) !== challenge) return "invalid";
 
-      sweep();
-      if (used.has(challenge)) return "invalid";
-      if (used.size >= maxUsed) return "unavailable";
-      used.set(challenge, expires);
-      return "ok";
-    },
-
-    get usedCount() {
-      return used.size;
+      // Só depois de tudo conferido: um desafio recusado não fica marcado como usado.
+      const claimed = await claims.claim(challenge, expires);
+      return claimed === "used" ? "invalid" : claimed;
     },
   };
 }

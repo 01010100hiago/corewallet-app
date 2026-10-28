@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import mongoose from "mongoose";
 import { createApp } from "../src/app.js";
+import RateLimitHit from "../src/models/RateLimitHit.js";
 import { connectDb, disconnectDb } from "../src/config/database.js";
 import User from "../src/models/User.js";
 import RefreshSession from "../src/models/RefreshSession.js";
@@ -42,7 +43,7 @@ describe("confirmação de email", { skip: !uri && "defina TEST_DATABASE_URI par
   beforeEach(async () => {
     outbox = [];
     failing = false;
-    await Promise.all([User, RefreshSession].map((m) => m.deleteMany({})));
+    await Promise.all([User, RefreshSession, RateLimitHit].map((m) => m.deleteMany({})));
   });
   after(async () => {
     await mongoose.connection.dropDatabase();

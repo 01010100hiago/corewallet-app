@@ -64,8 +64,7 @@ describe("banco lento ou fora do ar", { skip: !uri && "defina TEST_DATABASE_URI 
       assert.match(res.body.message, /indisponível/i);
       assert.equal((await request(app).get("/api/health")).status, 503);
     } finally {
-      mongoose.set("bufferTimeoutMS", 10_000);
-      await connectDb(uri);
+      await connectDb(uri); // volta aos limites de produção
     }
   });
 });

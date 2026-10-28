@@ -120,7 +120,6 @@ Antes de atualizar o kernel, confira se já existe um Mongo corrigido, e fixe a 
 
 ## Em produção, lembre
 
-- Os limites de tentativa ficam na memória da API: servem para **uma instância**, e reiniciar a API zera os
-  contadores. Veja [Limites conhecidos](LIMITES.md).
-- As sessões ficam no Mongo: reiniciar a API não desloga ninguém.
+- Sessões, limites de tentativa e desafios de uso único ficam no Mongo: reiniciar a API não desloga ninguém nem zera
+  contagem, e várias cópias da API dividem o mesmo estado. Veja [Limites conhecidos](LIMITES.md).
 - Não há recuperação de senha nesta versão.

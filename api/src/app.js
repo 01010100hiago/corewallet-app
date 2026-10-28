@@ -15,6 +15,8 @@ import { createMailer } from "./services/mailer.js";
 import { createEmailVerification } from "./services/emailVerificationService.js";
 import { createTwoFactor } from "./services/twoFactorService.js";
 import { isDbUnavailable } from "./lib/dbErrors.js";
+import { MongoRateLimitStore } from "./lib/mongoRateLimitStore.js";
+import { createMongoClaimStore } from "./lib/claimStores.js";
 
 // Mensagem que pode ir para o cliente. Erros do parser de JSON trazem detalhes
 // internos, então viram frases fixas; o resto só aparece se for marcado como público.
@@ -28,14 +30,17 @@ function publicMessage(err, status) {
 // deps permite trocar captcha e Google por versões de teste.
 export function createApp(env, deps = {}) {
   const app = express();
-  const captcha = deps.captcha ?? (env.turnstile ? createCaptcha(env.turnstile) : env.pow ? createPowCaptcha(env.pow) : createCaptcha(null));
+  // Estado de curta duração (contadores de limite, desafios usados) fica no Mongo, para várias instâncias
+  // da API dividirem o mesmo estado. `deps` troca por versões em memória nos testes sem banco.
+  const powStore = deps.powStore ?? createMongoClaimStore();
+  const captcha = deps.captcha ?? (env.turnstile ? createCaptcha(env.turnstile) : env.pow ? createPowCaptcha(env.pow, undefined, powStore) : createCaptcha(null));
   const google = deps.google ?? createGoogleVerifier(env.googleClientId);
   const mailer = deps.mailer ?? createMailer(env.mail);
   const emailVerification = deps.emailVerification ?? createEmailVerification({ mailer, webOrigin: env.webOrigin });
   const twoFactor = deps.twoFactor ?? createTwoFactor({ jwtSecret: env.jwtSecret, encryptionKey: env.totpEncryptionKey ?? env.jwtSecret });
   const authMiddleware = createAuthMiddleware(env.jwtSecret);
   // env.rateLimits só existe nos testes (false desliga, objeto troca os limites).
-  const limiters = createLimiters(env.rateLimits);
+  const limiters = createLimiters(env.rateLimits, { storeFor: deps.rateLimitStoreFor ?? ((name) => new MongoRateLimitStore({ prefix: `${name}|` })) });
 
   app.disable("x-powered-by");
   // Atrás do nginx, req.ip só é o IP da pessoa se a API confiar no cabeçalho dele.

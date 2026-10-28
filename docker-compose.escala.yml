@@ -1,0 +1,17 @@
+# Demonstração de escala: várias cópias da API atrás do nginx, cada uma com a CPU limitada.
+#   docker compose -f docker-compose.yml -f docker-compose.escala.yml up -d --build
+# API_REPLICAS (padrão 2) e API_CPUS por cópia (padrão 1). Veja docs/DESEMPENHO.md.
+#
+# O estado de curta duração (limites, desafios) fica no Mongo, então as cópias dividem o mesmo estado.
+# O nginx resolve o nome "api" pelo DNS do Docker a cada 10 s e reparte os pedidos entre as cópias.
+services:
+  api:
+    environment:
+      # Só para medir: desliga o limite de tentativas (a API recusa isto em produção).
+      RATE_LIMITS: ${RATE_LIMITS:-}
+    deploy:
+      replicas: ${API_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: "${API_CPUS:-1}"
+          memory: 256M

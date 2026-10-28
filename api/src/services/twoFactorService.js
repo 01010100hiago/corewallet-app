@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import bcrypt from "bcrypt";
 import QRCode from "qrcode";
 import User from "../models/User.js";
+import TwoFactorChallenge from "../models/TwoFactorChallenge.js";
 import { createSecretBox } from "../lib/secretBox.js";
 import { base32Encode, generateSecret, otpauthUri, verifyTotp, stepOf } from "../lib/totp.js";
 
@@ -17,6 +18,9 @@ export class TwoFactorError extends Error {
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+// Uma conferência por vez por desafio; se a instância morrer no meio, a trava vence sozinha.
+const BUSY_MS = 15 * 1000;
+const DUPLICATE_KEY = 11000;
 const RECOVERY_COUNT = 10;
 // Erros seguidos no segundo fator por CONTA (de qualquer IP); passou disso, a conta espera um tempo.
 const MAX_FAILS = 10;
@@ -32,21 +36,9 @@ function newRecoveryCode() {
 
 // Verificação em duas etapas por aplicativo autenticador (TOTP), com códigos de recuperação.
 // O segredo fica cifrado no banco (AES-256-GCM); o código de recuperação, só em hash.
-export function createTwoFactor({ jwtSecret, encryptionKey = jwtSecret, issuer = "CoreWallet", now = () => Date.now() }) {
+export function createTwoFactor({ jwtSecret, encryptionKey = jwtSecret, issuer = "CoreWallet", now = () => Date.now(), challenges = TwoFactorChallenge }) {
   const box = createSecretBox(encryptionKey);
   const challengeKey = createHmac("sha256", jwtSecret).update("corewallet:2fa-challenge:v1").digest();
-  // Tentativas por desafio e desafios já usados. Ficam na memória da API (como os limites de
-  // tentativas): reiniciar a API apaga essa contagem, mas o desafio continua vencendo em 5 minutos.
-  const attempts = new Map(); // nonce -> { count, exp }
-  const used = new Map(); // nonce -> exp
-  const inflight = new Set(); // desafios com uma conferência em andamento (um por vez)
-
-  function sweep() {
-    const t = now();
-    for (const [k, v] of attempts) if (v.exp <= t) attempts.delete(k);
-    for (const [k, exp] of used) if (exp <= t) used.delete(k);
-  }
-
   const sign = (payload) => createHmac("sha256", challengeKey).update(payload).digest("base64url");
 
   // Prova de que a senha acabou de ser conferida: assinado, de curta duração e só serve para a 2ª etapa.
@@ -66,23 +58,35 @@ export function createTwoFactor({ jwtSecret, encryptionKey = jwtSecret, issuer =
     return { userId, nonce, exp: Number(exp) };
   }
 
-  // Uma tentativa na conta do desafio. Passou de 5 erros, o desafio morre (precisa digitar a senha de novo).
-  function spendAttempt(challenge) {
-    sweep();
-    if (used.has(challenge.nonce)) throw new TwoFactorError("Desafio inválido ou vencido. Entre de novo.", 401, undefined, "challenge_invalid");
-    const entry = attempts.get(challenge.nonce) ?? { count: 0, exp: challenge.exp };
-    entry.count += 1;
-    attempts.set(challenge.nonce, entry);
-    if (entry.count > MAX_ATTEMPTS) {
-      used.set(challenge.nonce, challenge.exp);
+  const invalidChallenge = () => new TwoFactorError("Desafio inválido ou vencido. Entre de novo.", 401, undefined, "challenge_invalid");
+
+  // Abre UMA conferência no desafio, de forma atômica no banco (vale entre instâncias da API): soma a
+  // tentativa e marca o desafio como "em conferência". Se já há outra conferência em andamento, ou o
+  // desafio já foi usado, o índice único do upsert recusa. Passou de 5 erros, o desafio morre (precisa
+  // digitar a senha de novo).
+  async function beginAttempt(challenge) {
+    const t = now();
+    const free = { _id: challenge.nonce, used: { $ne: true }, $or: [{ busyUntil: { $exists: false } }, { busyUntil: { $lte: new Date(t) } }] };
+    let doc;
+    try {
+      doc = await challenges
+        .findOneAndUpdate(free, { $inc: { attempts: 1 }, $set: { busyUntil: new Date(t + BUSY_MS) }, $setOnInsert: { exp: new Date(challenge.exp) } }, { upsert: true, returnDocument: "after" })
+        .lean();
+    } catch (err) {
+      if (err?.code !== DUPLICATE_KEY) throw err;
+      const current = await challenges.findById(challenge.nonce).lean();
+      if (!current || current.used) throw invalidChallenge();
+      throw new TwoFactorError("Aguarde a conferência anterior terminar.", 429, undefined, "challenge_busy");
+    }
+    if (doc.attempts > MAX_ATTEMPTS) {
+      await challenges.updateOne({ _id: challenge.nonce }, { $set: { used: true }, $unset: { busyUntil: 1 } });
       throw new TwoFactorError("Muitas tentativas com este desafio. Entre de novo.", 429, undefined, "challenge_locked");
     }
   }
 
-  const finishChallenge = (challenge) => {
-    attempts.delete(challenge.nonce);
-    used.set(challenge.nonce, challenge.exp);
-  };
+  // Fecha a conferência: acertou, o desafio fica gasto; errou, só libera para a próxima tentativa.
+  const endAttempt = (challenge, ok) =>
+    challenges.updateOne({ _id: challenge.nonce }, ok ? { $set: { used: true }, $unset: { busyUntil: 1 } } : { $unset: { busyUntil: 1 } });
 
   // Começa a ativação: gera um segredo novo e o guarda como pendente (cifrado) até a pessoa
   // provar, com um código, que o aplicativo está lendo o mesmo segredo.
@@ -168,18 +172,17 @@ export function createTwoFactor({ jwtSecret, encryptionKey = jwtSecret, issuer =
   // Segunda etapa do login.
   async function completeLogin(token, code) {
     const challenge = readChallenge(token);
-    if (!challenge) throw new TwoFactorError("Desafio inválido ou vencido. Entre de novo.", 401, undefined, "challenge_invalid");
+    if (!challenge) throw invalidChallenge();
     // Uma conferência por vez por desafio: pedidos em paralelo com o mesmo desafio não furam o limite
-    // de tentativas nem abrem duas sessões.
-    if (inflight.has(challenge.nonce)) throw new TwoFactorError("Aguarde a conferência anterior terminar.", 429, undefined, "challenge_busy");
-    inflight.add(challenge.nonce);
+    // de tentativas nem abrem duas sessões (nem em instâncias diferentes da API).
+    await beginAttempt(challenge);
+    let ok = false;
     try {
-      spendAttempt(challenge);
-      if (!(await guardedCheck(challenge.userId, code))) throw new TwoFactorError("Código incorreto", 401, undefined, "wrong_code");
-      finishChallenge(challenge);
+      ok = await guardedCheck(challenge.userId, code);
     } finally {
-      inflight.delete(challenge.nonce);
+      await endAttempt(challenge, ok);
     }
+    if (!ok) throw new TwoFactorError("Código incorreto", 401, undefined, "wrong_code");
     return User.findById(challenge.userId);
   }
 

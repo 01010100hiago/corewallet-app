@@ -33,8 +33,8 @@ export function createCaptcha(config, fetchImpl = fetch) {
 }
 
 // Verificação automática própria (sem chaves nem serviço externo). Ver powService.js.
-export function createPowCaptcha(config, now = Date.now) {
-  const pow = createPow({ secret: config.secret, maxNumber: config.maxNumber, now });
+export function createPowCaptcha(config, now = Date.now, store = undefined) {
+  const pow = createPow({ secret: config.secret, maxNumber: config.maxNumber, store, now });
   return {
     enabled: true,
     provider: "pow",

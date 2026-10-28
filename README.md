@@ -79,6 +79,7 @@ Detalhes dos testes em [docs/TESTES.md](docs/TESTES.md).
 | [Configuração](docs/CONFIGURACAO.md) | Variáveis do `.env`, login com Google, captcha, confirmação de email e verificação em duas etapas |
 | [Publicar](docs/DEPLOY.md) | Subir em um servidor com Docker e túnel da Cloudflare |
 | [Lab do autor](docs/LAB.md) | Como o projeto roda hoje no servidor de casa |
+| [Desempenho e escala](docs/DESEMPENHO.md) | Várias cópias da API, estado compartilhado no Mongo e medidas de carga |
 | [Segurança](docs/SEGURANCA.md) | O que o projeto faz a mais que o curso, e como |
 | [API](docs/API.md) | Rotas |
 | [Testes](docs/TESTES.md) | Camadas de teste e como rodar cada uma |

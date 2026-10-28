@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import mongoose from "mongoose";
 import { createApp } from "../src/app.js";
+import RateLimitHit from "../src/models/RateLimitHit.js";
 import { connectDb, disconnectDb } from "../src/config/database.js";
 import User from "../src/models/User.js";
 import Transaction from "../src/models/Transaction.js";
@@ -57,7 +58,7 @@ describe("sessões, CSRF e limites", { skip: !uri && "defina TEST_DATABASE_URI p
     await RefreshSession.init();
   });
   beforeEach(async () => {
-    await Promise.all([User.deleteMany({}), Transaction.deleteMany({}), RefreshSession.deleteMany({})]);
+    await Promise.all([User.deleteMany({}), Transaction.deleteMany({}), RefreshSession.deleteMany({}), RateLimitHit.deleteMany({})]);
   });
   after(async () => {
     await mongoose.connection.dropDatabase();
