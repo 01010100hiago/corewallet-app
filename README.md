@@ -18,6 +18,9 @@ Carteira de receitas e despesas, inspirada no projeto do curso de React da [DIO]
     <td align="center"><a href="docs/img/conta.png"><img src="docs/img/mini/conta.webp" alt="Conta: dispositivos conectados e verificação em duas etapas" width="230" /></a><br /><sub>Conta</sub></td>
     <td align="center"><a href="docs/img/nova-saida.png"><img src="docs/img/mini/nova-saida.webp" alt="Formulário de nova despesa" width="230" /></a><br /><sub>Nova despesa</sub></td>
   </tr>
+  <tr>
+    <td align="center" colspan="4"><a href="docs/img/entrar-cloudflare.png"><img src="docs/img/mini/entrar-cloudflare.webp" alt="Login com a verificação anti-robô da Cloudflare (Turnstile) ativa e centralizada" width="360" /></a><br /><sub>Login com a verificação da Cloudflare (Turnstile)</sub></td>
+  </tr>
 </table>
 
 ## O que tem
@@ -78,7 +81,7 @@ Detalhes dos testes em [docs/TESTES.md](docs/TESTES.md).
 |---|---|
 | [Configuração](docs/CONFIGURACAO.md) | Variáveis do `.env`, login com Google, captcha, confirmação de email e verificação em duas etapas |
 | [Publicar](docs/DEPLOY.md) | Subir em um servidor com Docker e túnel da Cloudflare |
-| [Lab do autor](docs/LAB.md) | Como o projeto roda hoje no servidor de casa |
+| [Servidor caseiro](docs/LAB.md) | Exemplo de como rodar em um servidor de casa com túnel |
 | [Desempenho e escala](docs/DESEMPENHO.md) | Várias cópias da API, estado compartilhado no Mongo e medidas de carga |
 | [Segurança](docs/SEGURANCA.md) | O que o projeto faz a mais que o curso, e como |
 | [API](docs/API.md) | Rotas |

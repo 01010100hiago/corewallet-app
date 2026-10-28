@@ -31,7 +31,7 @@ faz de verdade; o que ainda não existe está em [Limites conhecidos](LIMITES.md
 ## Requisições
 
 - **CSRF em duas camadas:** a `Origin` precisa ser a do próprio site, e requisições que mudam dados repetem o cookie
-  `cw_csrf` no cabeçalho `X-CSRF-Token` (double submit). O cookie de renovação é `SameSite=Strict`.
+  `cw_csrf` no cabeçalho `X-CSRF-Token` (double submit). Em HTTPS todos os cookies levam o prefixo `__Host-` (só valem se vierem de conexão segura, sem `Domain`): outro subdomínio do mesmo domínio não consegue plantar um cookie nosso para forçar a pessoa a entrar na conta de um invasor. O cookie de renovação é `SameSite=Strict`.
 - **Validação nos dois lados com o mesmo código:** os schemas Zod ficam em `shared/` e a API valida tudo de novo.
   Objetos no lugar de texto (injeção NoSQL) são recusados.
 - **Cabeçalhos:** CSP, `X-Frame-Options` e `nosniff` no nginx; `helmet` na API; respostas da API com

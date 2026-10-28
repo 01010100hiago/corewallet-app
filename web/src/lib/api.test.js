@@ -22,10 +22,24 @@ let server;
 afterEach(() => {
   server?.restore();
   Cookies.remove("cw_csrf");
+  Cookies.remove("__Host-cw_csrf");
   vi.useRealTimers();
 });
 
 describe("CSRF", () => {
+  test("em HTTPS o token vem do cookie com prefixo __Host-, que vale mais que o antigo", async () => {
+    // O jsdom roda em http e recusa cookies __Host-; o navegador em HTTPS entrega os dois nomes.
+    const jar = { "cw_csrf": "token-antigo", "__Host-cw_csrf": "token-novo" };
+    vi.spyOn(Cookies, "get").mockImplementation((name) => jar[name]);
+    server = fakeServer({ "post /x": [[200]] });
+    await api.post("/x");
+    expect(server.calls.at(-1).csrf).toBe("token-novo");
+    delete jar["__Host-cw_csrf"];
+    await api.post("/x");
+    expect(server.calls.at(-1).csrf).toBe("token-antigo");
+    vi.restoreAllMocks();
+  });
+
   test("requisições que mudam dados levam o cookie no cabeçalho; leituras não", async () => {
     Cookies.set("cw_csrf", "token-abc");
     server = fakeServer({ "get /x": [[200]], "post /x": [[200]], "delete /x": [[200]], "patch /x": [[200]] });

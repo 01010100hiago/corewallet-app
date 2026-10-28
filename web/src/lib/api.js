@@ -11,13 +11,14 @@ export const api = axios.create({
 });
 
 const SAFE_METHODS = new Set(["get", "head", "options"]);
-const CSRF_COOKIE = "cw_csrf";
+// Em HTTPS o cookie leva o prefixo __Host-; em http://localhost, não.
+const CSRF_COOKIES = ["__Host-cw_csrf", "cw_csrf"];
 
 // Proteção CSRF: toda requisição que muda dados repete o cookie anti-CSRF (legível
 // só por páginas do nosso site) num cabeçalho, que outro site não consegue montar.
 api.interceptors.request.use((config) => {
   if (!SAFE_METHODS.has((config.method ?? "get").toLowerCase())) {
-    const token = Cookies.get(CSRF_COOKIE);
+    const token = CSRF_COOKIES.map((name) => Cookies.get(name)).find(Boolean);
     if (token) config.headers.set("X-CSRF-Token", token);
   }
   return config;

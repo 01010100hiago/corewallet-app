@@ -5,9 +5,8 @@ import * as sessions from "../services/sessionService.js";
 import User from "../models/User.js";
 import { signAccessToken, accessExpiry, verifyAccessToken, ACCESS_TTL_SECONDS } from "../services/tokenService.js";
 import { describeDevice, maskIp } from "../lib/device.js";
-import { SESSION_COOKIE, REFRESH_COOKIE, CSRF_COOKIE } from "./cookies.js";
+import { cookieNames, LEGACY_COOKIES } from "./cookies.js";
 
-const NONCE_COOKIE = "cw_gnonce";
 const NONCE_TTL_SECONDS = 5 * 60;
 
 // O cookie guarda um segredo da tentativa ("<vence em ms>.<aleatório>") que só o
@@ -46,11 +45,14 @@ const publicUser = (user) => ({
 });
 
 export function createAuthController({ env, captcha, google, emailVerification, twoFactor }) {
+  const { session: SESSION_COOKIE, refresh: REFRESH_COOKIE, csrf: CSRF_COOKIE, nonce: NONCE_COOKIE } = cookieNames(env.cookieSecure);
+  // `__Host-` (HTTPS) exige Path=/; sem HTTPS cada cookie fica no caminho mínimo de que precisa.
+  const where = (path) => (env.cookieSecure ? "/" : path);
   const baseCookie = { httpOnly: true, secure: env.cookieSecure, sameSite: "lax" };
-  const sessionCookie = { ...baseCookie, path: "/api" };
-  const refreshCookie = { ...baseCookie, sameSite: "strict", path: "/api/auth" };
+  const sessionCookie = { ...baseCookie, path: where("/api") };
+  const refreshCookie = { ...baseCookie, sameSite: "strict", path: where("/api/auth") };
   const csrfCookie = { secure: env.cookieSecure, sameSite: "lax", path: "/" };
-  const nonceCookie = { ...baseCookie, path: "/api/auth" };
+  const nonceCookie = { ...baseCookie, path: where("/api/auth") };
 
   const meta = (req) => ({ userAgent: req.get("user-agent"), ip: req.ip });
 
@@ -69,6 +71,8 @@ export function createAuthController({ env, captcha, google, emailVerification, 
     res.clearCookie(SESSION_COOKIE, sessionCookie);
     res.clearCookie(REFRESH_COOKIE, refreshCookie);
     res.clearCookie(CSRF_COOKIE, csrfCookie);
+    // Quem entrou antes dos nomes com prefixo ainda tem os cookies antigos: sai junto.
+    if (env.cookieSecure) for (const { name, path } of LEGACY_COOKIES) res.clearCookie(name, { ...baseCookie, path });
   }
 
   async function startSession(req, res, user) {

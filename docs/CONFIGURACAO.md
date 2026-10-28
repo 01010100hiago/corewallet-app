@@ -14,6 +14,7 @@ Tudo se configura pelo `.env` (copie de [`.env.example`](../.env.example); ele n
 | `PORT` | Porta da API | `4000` |
 | `COOKIE_SECURE` | `true` ao servir por HTTPS (cookies só trafegam por HTTPS) | `false` no compose; `true` se a API rodar sozinha em produção |
 | `TRUST_PROXY` | Quantos proxies ficam entre o navegador e a API (veja abaixo) | `0` na API, `1` no compose |
+| `REALIP_CONF` | Só no compose: arquivo de IP real do nginx. `./web/realip-cloudflare.conf` atrás de um túnel da Cloudflare | `./web/realip-nenhum.conf` |
 | `GOOGLE_CLIENT_ID` | Liga o botão "Entrar com o Google" | vazio = desligado |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Captcha da Cloudflare (as duas juntas ou nenhuma) | vazio = usa a verificação automática |
 | `CAPTCHA_POW`, `POW_MAX_NUMBER` | `off` desliga a verificação automática; `POW_MAX_NUMBER` ajusta a dificuldade (100 a 5.000.000) | ligada, `100000` |
@@ -31,8 +32,13 @@ chaves de teste da Cloudflare.
 de tentativa dependem dele. Valor **menor** que o real faz todo mundo dividir o mesmo IP (dá para travar o login
 dos outros); valor **maior** deixa o IP ser falsificado.
 
-- Só o nginx do próprio `docker-compose.yml` na frente: `1`.
-- Túnel da Cloudflare na frente do nginx (navegador, Cloudflare, cloudflared, nginx, API): `2`.
+- O nginx do `docker-compose.yml` sempre entrega **um IP só** à API (ele descarta o `X-Forwarded-For` que a pessoa
+  mandar), então o valor é `1`.
+- **Atrás de um túnel da Cloudflare** (navegador, Cloudflare, cloudflared, nginx, API), mantenha `TRUST_PROXY=1` e ponha
+  `REALIP_CONF=./web/realip-cloudflare.conf` no `.env`: o nginx passa a ler o IP da pessoa no cabeçalho
+  `CF-Connecting-IP`, que a Cloudflare escreve sozinha, e só o aceita de redes privadas (o cloudflared). De qualquer
+  outro lugar o cabeçalho é ignorado, então ninguém falsifica o próprio IP para fugir do limite ou para travar o de
+  outra pessoa. Sem esse arquivo, atrás do túnel, todos apareceriam com o IP do cloudflared.
 
 ## Login com Google
 

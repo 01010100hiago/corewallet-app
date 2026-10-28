@@ -13,6 +13,10 @@ O que ainda não existe ou funciona de forma simplificada.
   então várias cópias da API dividem o mesmo estado e reiniciar a API não zera nada. O custo é uma ida ao banco por
   pedido limitado. Se o banco estiver fora do ar, o limite de tentativas **deixa passar** (sem banco nem o login
   funciona), e a verificação automática **recusa** (falha fechada).
+- **Confirmação de email:** o link também pede a senha da conta e aceita 5 senhas erradas. Contas pendentes criadas
+  antes dessa regra não podem ser assumidas por um novo cadastro (apague-as à mão, veja [Configuração](CONFIGURACAO.md)).
+  Sem a confirmação ligada, o cadastro já nasce ativo. Não há recuperação de senha, então quem esquecer a senha de uma
+  conta ainda não confirmada precisa de ajuda de quem administra.
 - A lista de dispositivos mostra o IP pela metade e navegador e sistema lidos do `User-Agent`, uma leitura aproximada.
 
 ## Datas e valores

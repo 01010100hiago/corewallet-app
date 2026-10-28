@@ -30,7 +30,7 @@ Como criar cada um está em [Configuração](CONFIGURACAO.md). Sem os opcionais 
 ## 2. Código no servidor
 
 ```bash
-git clone git@github.com:seu-usuario/corewallet.git
+git clone git@github.com:<seu-usuario>/corewallet.git
 cd corewallet
 ```
 
@@ -48,7 +48,8 @@ O que muda em relação ao desenvolvimento:
 ```ini
 WEB_ORIGIN=https://seu.dominio.com
 COOKIE_SECURE=true
-TRUST_PROXY=2                # atrás do túnel da Cloudflare; veja Configuração
+TRUST_PROXY=1                # o nginx entrega um IP só; veja Configuração
+REALIP_CONF=./web/realip-cloudflare.conf   # só atrás de um túnel da Cloudflare: lê o IP real da pessoa
 TOTP_ENCRYPTION_KEY=...      # defina ANTES de alguém ativar o 2FA
 # Se 8080 ou 27017 já estiverem em uso por outro projeto:
 # WEB_PORT=8091
@@ -81,9 +82,9 @@ curl -sI https://seu.dominio.com | grep -iE "content-security-policy|strict-tran
 Faça um login pelo navegador e veja em Ferramentas do desenvolvedor → Aplicativo → Cookies:
 
 ```
-cw_session  HttpOnly  Secure  SameSite=Lax     Path=/api
-cw_refresh  HttpOnly  Secure  SameSite=Strict  Path=/api/auth
-cw_csrf               Secure  SameSite=Lax     Path=/
+__Host-cw_session  HttpOnly  Secure  SameSite=Lax     Path=/
+__Host-cw_refresh  HttpOnly  Secure  SameSite=Strict  Path=/
+__Host-cw_csrf               Secure  SameSite=Lax     Path=/
 ```
 
 Se o login funciona mas a sessão some a cada requisição, quase sempre é `COOKIE_SECURE=true` com acesso por HTTP,
@@ -99,6 +100,20 @@ docker compose up -d --build        # só recria o que mudou
 Os dados ficam no volume do Mongo e sobrevivem ao rebuild. Para voltar a uma versão anterior:
 `git checkout <commit> && docker compose up -d --build`.
 
+## Usuário do banco só para o app (recomendado)
+
+Por padrão a API entra no Mongo como o usuário root. Para limitar o estrago de uma falha, crie um usuário que só lê e
+escreve no banco `corewallet`:
+
+```bash
+deploy/criar-usuario-do-app.sh SENHA_NOVA     # só letras e números
+```
+
+Ponha `MONGO_APP_PASSWORD=SENHA_NOVA` no `.env` e, no `docker-compose.yml`, troque a `DATABASE_URI` da API por
+`mongodb://corewallet_app:${MONGO_APP_PASSWORD}@mongo:27017/corewallet?authSource=corewallet`. O exemplo em
+[`deploy/lab/docker-compose.yml`](../deploy/lab/docker-compose.yml) já faz isso. O root continua existindo para backup
+e manutenção.
+
 ## Backup (opcional)
 
 ```bash
@@ -109,7 +124,7 @@ docker compose exec -T mongo sh -c 'mongodump -u "$MONGO_INITDB_ROOT_USERNAME" -
 docker compose exec -T mongo sh -c 'mongorestore -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --archive --gzip --drop' < corewallet-AAAA-MM-DD.archive.gz
 ```
 
-O arquivo tem hashes de senha e dados financeiros: guarde-o com permissão restrita.
+O arquivo tem hashes de senha e dados financeiros: guarde-o com permissão restrita (o `backup.sh` já grava com `umask 077`).
 
 ## Atenção com o kernel do servidor
 

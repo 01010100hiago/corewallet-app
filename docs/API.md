@@ -1,7 +1,7 @@
 # API
 
 Todas as rotas ficam sob `/api` e respondem JSON. Rotas de dados exigem sessão aberta. Requisições que mudam
-dados também repetem o cookie `cw_csrf` no cabeçalho `X-CSRF-Token` (veja [Segurança](SEGURANCA.md)).
+dados também repetem o cookie `cw_csrf` (`__Host-cw_csrf` em HTTPS) no cabeçalho `X-CSRF-Token` (veja [Segurança](SEGURANCA.md)).
 
 ## Conta e sessão
 

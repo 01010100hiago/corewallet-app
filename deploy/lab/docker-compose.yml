@@ -29,15 +29,15 @@ services:
     environment:
       PORT: "4000"
       NODE_ENV: production
-      DATABASE_URI: mongodb://${MONGO_ROOT_USER:-corewallet}:${MONGO_ROOT_PASSWORD}@mongo:27017/corewallet?authSource=admin
+      # Usuário só do app (readWrite no banco corewallet), não o root: veja deploy/criar-usuario-do-app.sh.
+      DATABASE_URI: mongodb://corewallet_app:${MONGO_APP_PASSWORD:?defina MONGO_APP_PASSWORD no arquivo .env}@mongo:27017/corewallet?authSource=corewallet
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
-      WEB_ORIGIN: ${WEB_ORIGIN:-https://carteira.exemplo.com}
+      WEB_ORIGIN: ${WEB_ORIGIN:?defina WEB_ORIGIN no arquivo .env}
       # Sempre atrás de HTTPS (Cloudflare): o cookie de sessão só vai por conexão segura.
       COOKIE_SECURE: "true"
-      # Cadeia até a API: navegador -> Cloudflare -> cloudflared -> nginx (web) -> API.
-      # Com 2 saltos confiáveis (nginx e cloudflared) req.ip é o IP da pessoa, e o limite de
-      # tentativas conta por pessoa. Com 1, todo mundo teria o IP do cloudflared.
-      TRUST_PROXY: "2"
+      # Cadeia até a API: navegador -> Cloudflare -> cloudflared -> nginx (web) -> API. O nginx lê o
+      # IP da pessoa no CF-Connecting-IP (realip-cloudflare.conf) e entrega um valor só: 1 salto.
+      TRUST_PROXY: "1"
       # Login com Google e captcha: vazios = desligados (só login por senha). Para ligar, ponha
       # as chaves reais no .env (veja docs/CONFIGURACAO.md no repositório).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -68,6 +68,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    volumes:
+      # O IP da pessoa vem do CF-Connecting-IP (só de redes privadas); a API recebe um IP só (TRUST_PROXY=1).
+      - ./app/web/realip-cloudflare.conf:/etc/nginx/realip/realip.conf:ro
     ports:
       # Só no localhost do lab, para conferir no próprio servidor. Quem chega de fora é o túnel.
       - "127.0.0.1:5191:8080"

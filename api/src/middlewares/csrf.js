@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { SESSION_COOKIE, REFRESH_COOKIE, CSRF_COOKIE } from "../controllers/cookies.js";
+import { cookieNames } from "../controllers/cookies.js";
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 // Quem ainda não tem sessão (login, cadastro) não tem o que roubar; a renovação só
@@ -21,9 +21,10 @@ const same = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), 
 
 // Defesa em duas camadas para requisições que mudam dados:
 // 1) se o navegador mandou Origin, ela precisa ser a do próprio site;
-// 2) com sessão aberta, o cabeçalho X-CSRF-Token precisa repetir o cookie cw_csrf,
+// 2) com sessão aberta, o cabeçalho X-CSRF-Token precisa repetir o cookie cw_csrf (com prefixo __Host- em HTTPS),
 //    que só páginas do nosso site conseguem ler.
 export function createCsrf(env) {
+  const { session: SESSION_COOKIE, refresh: REFRESH_COOKIE, csrf: CSRF_COOKIE } = cookieNames(env.cookieSecure);
   return function csrf(req, res, next) {
     if (SAFE.has(req.method)) return next();
 

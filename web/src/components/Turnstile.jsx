@@ -55,5 +55,5 @@ export default function Turnstile({ siteKey, onToken, resetKey = 0 }) {
       </p>
     );
   }
-  return <div ref={box} className="min-h-[65px]" aria-label="Verificação de segurança" />;
+  return <div ref={box} className="flex min-h-[65px] justify-center" aria-label="Verificação de segurança" />;
 }

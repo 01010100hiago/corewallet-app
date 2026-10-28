@@ -1,8 +1,9 @@
 #!/bin/sh
 # Backup do banco do CoreWallet no lab: um arquivo compactado com a data em backups/,
-# mantendo os 14 mais recentes. Roda de dentro de /srv/corewallet.
+# mantendo os 14 mais recentes. Roda de dentro da pasta do projeto.
 # Restaurar: veja docs/DEPLOY.md, seção "Backup (opcional)".
 set -eu
+umask 077   # o arquivo tem hashes de senha e dados financeiros: só o dono lê
 cd "$(dirname "$0")"
 mkdir -p backups
 arquivo="backups/corewallet-$(date +%F-%H%M).archive.gz"

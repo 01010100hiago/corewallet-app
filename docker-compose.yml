@@ -30,8 +30,8 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       # Cookie "Secure" só funciona em HTTPS. Use true quando for publicar.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # Quantos proxies ficam entre o navegador e a API (o nginx do web conta 1). Com um túnel na
-      # frente (cloudflared, Cloudflare) use 2; com valor menor todos dividem o mesmo IP nos limites.
+      # Quantos proxies ficam entre o navegador e a API. O nginx do web entrega um IP só já resolvido,
+      # então o valor é 1 (inclusive atrás de um túnel da Cloudflare, com REALIP_CONF no web).
       TRUST_PROXY: ${TRUST_PROXY:-1}
       # Verificação automática do CoreWallet (usada quando não há chaves do Turnstile): vazios = padrão.
       CAPTCHA_POW: ${CAPTCHA_POW:-}
@@ -65,6 +65,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    volumes:
+      # IP real da pessoa. Atrás de um túnel da Cloudflare: REALIP_CONF=./web/realip-cloudflare.conf no .env.
+      - ${REALIP_CONF:-./web/realip-nenhum.conf}:/etc/nginx/realip/realip.conf:ro
     depends_on:
       api:
         condition: service_healthy

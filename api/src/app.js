@@ -38,7 +38,7 @@ export function createApp(env, deps = {}) {
   const mailer = deps.mailer ?? createMailer(env.mail);
   const emailVerification = deps.emailVerification ?? createEmailVerification({ mailer, webOrigin: env.webOrigin });
   const twoFactor = deps.twoFactor ?? createTwoFactor({ jwtSecret: env.jwtSecret, encryptionKey: env.totpEncryptionKey ?? env.jwtSecret });
-  const authMiddleware = createAuthMiddleware(env.jwtSecret);
+  const authMiddleware = createAuthMiddleware(env.jwtSecret, env.cookieSecure);
   // env.rateLimits só existe nos testes (false desliga, objeto troca os limites).
   const limiters = createLimiters(env.rateLimits, { storeFor: deps.rateLimitStoreFor ?? ((name) => new MongoRateLimitStore({ prefix: `${name}|` })) });
 

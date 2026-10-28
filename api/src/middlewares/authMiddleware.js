@@ -2,9 +2,10 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import { verifyAccessToken } from "../services/tokenService.js";
 import * as sessions from "../services/sessionService.js";
-import { SESSION_COOKIE } from "../controllers/cookies.js";
+import { cookieNames } from "../controllers/cookies.js";
 
-export function createAuthMiddleware(jwtSecret) {
+export function createAuthMiddleware(jwtSecret, cookieSecure = false) {
+  const SESSION_COOKIE = cookieNames(cookieSecure).session;
   return async function authMiddleware(req, res, next) {
     const token = req.cookies?.[SESSION_COOKIE];
     const access = typeof token === "string" ? verifyAccessToken(token, jwtSecret) : null;

@@ -31,3 +31,7 @@ As capturas de `docs/img` são geradas por um teste que só roda sob pedido, e a
 E2E_SCREENSHOTS=1 npm run test:e2e -- tests/capturas.spec.js
 e2e/miniaturas.sh        # precisa do cwebp (brew install webp)
 ```
+
+O print do login com a verificação da Cloudflare usa as chaves de **teste** do Turnstile (veja `.env.example`): suba a API
+com elas e o front em `:4173` (`npm run build -w web && npm run preview -w web -- --port 4173`) e rode
+`node e2e/captura-turnstile.mjs`.
