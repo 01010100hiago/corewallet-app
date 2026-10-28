@@ -4,6 +4,7 @@ import Category from "../models/Category.js";
 import Transaction from "../models/Transaction.js";
 import TransactionEvent from "../models/TransactionEvent.js";
 import User from "../models/User.js";
+import { inTransaction } from "../lib/dbTransaction.js";
 
 const keyOf = (name) =>
   name
@@ -57,10 +58,19 @@ export async function create(userId, { type, name }) {
 }
 
 // A categoria de um lançamento precisa existir e ser do tipo dele: de fábrica, ou da própria pessoa.
-export async function isUsable(userId, type, category) {
+export async function isUsable(userId, type, category, session = undefined) {
   if (isCategoryOf(type, category)) return true;
   if (!isCustomCategoryId(category) || !mongoose.isValidObjectId(category)) return false;
-  return Boolean(await Category.exists({ _id: category, userId, type }));
+  return Boolean(await Category.exists({ _id: category, userId, type }).session(session ?? null));
+}
+
+// Como isUsable, mas numa transação marca a categoria como usada: uma gravação que conflita com a exclusão
+// simultânea dela (uma das duas é repetida e enxerga a outra). Fora de transação é só a conferência.
+export async function claimCategory(userId, type, category, session = undefined) {
+  if (isCategoryOf(type, category)) return true;
+  if (!isCustomCategoryId(category) || !mongoose.isValidObjectId(category)) return false;
+  if (!session) return isUsable(userId, type, category);
+  return Boolean(await Category.findOneAndUpdate({ _id: category, userId, type }, { $set: { usedAt: new Date() } }, { session }));
 }
 
 // Quantos lançamentos usam cada categoria, de fábrica ou criada pela pessoa. Os excluídos contam:
@@ -104,10 +114,10 @@ export async function rename(userId, id, name) {
 
 // Move todos os lançamentos de `from` para `to` (de todo status) e registra a mudança de cada um
 // no histórico. Devolve quantos moveu.
-async function moveTransactions(userId, from, to) {
-  const affected = await Transaction.find({ userId, category: from }).lean();
+async function moveTransactions(userId, from, to, session) {
+  const affected = await Transaction.find({ userId, category: from }).session(session ?? null).lean();
   if (affected.length === 0) return 0;
-  await Transaction.updateMany({ userId, category: from }, { $set: { category: to } });
+  await Transaction.updateMany({ userId, category: from }, { $set: { category: to } }, { session });
   const at = new Date();
   await TransactionEvent.insertMany(
     affected.map((t) => ({
@@ -117,7 +127,8 @@ async function moveTransactions(userId, from, to) {
       at,
       snapshot: { type: t.type, valueCents: t.valueCents, description: t.description, category: to },
       changes: [{ field: "category", from, to }],
-    }))
+    })),
+    { session }
   );
   return affected.length;
 }
@@ -138,10 +149,19 @@ export async function remove(userId, id, moveTo) {
   }
 
   const destination = moveTo ?? DEFAULT_CATEGORY;
-  let moved = await moveTransactions(userId, from, destination);
-  await Category.deleteOne({ _id: category._id });
-  await User.updateOne({ _id: userId, [`categoryCount.${category.type}`]: { $gt: 0 } }, { $inc: { [`categoryCount.${category.type}`]: -1 } });
-  // Quem criou um lançamento com esta categoria no meio do caminho também vai para o destino.
-  moved += await moveTransactions(userId, from, destination);
-  return { moved };
+  // Mover os lançamentos, gravar o histórico, apagar a categoria e acertar o contador valem juntos ou não valem.
+  return inTransaction(async (session) => {
+    // O destino também pode ser apagado em paralelo: marcá-lo faz as duas transações conflitarem.
+    if (!(await claimCategory(userId, category.type, destination, session))) {
+      throw new CategoryError("Dados inválidos", 422, { moveTo: "Categoria de destino inválida" });
+    }
+    let moved = await moveTransactions(userId, from, destination, session);
+    const { deletedCount } = await Category.deleteOne({ _id: category._id }, { session });
+    // Já apagada por outro pedido (repetição da transação): nada a fazer, o contador não pode cair duas vezes.
+    if (deletedCount === 0) return { moved: 0 };
+    await User.updateOne({ _id: userId, [`categoryCount.${category.type}`]: { $gt: 0 } }, { $inc: { [`categoryCount.${category.type}`]: -1 } }, { session });
+    // Quem criou um lançamento com esta categoria no meio do caminho também vai para o destino.
+    moved += await moveTransactions(userId, from, destination, session);
+    return { moved };
+  });
 }

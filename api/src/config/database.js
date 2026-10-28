@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { detectTransactions } from "../lib/dbTransaction.js";
 
 // Limites para o banco lento ou fora do ar não deixar pedidos pendurados para sempre. O navegador
 // desiste em 15 s (web/src/lib/api.js), então a API precisa falhar antes disso.
@@ -20,6 +21,18 @@ export async function connectDb(uri) {
     socketTimeoutMS: SOCKET_TIMEOUT_MS,
   });
   console.log("MongoDB conectado");
+  // Logo depois de subir o Mongo a réplica pode ainda não ter sido criada: tenta por alguns segundos.
+  let supported = await detectTransactions();
+  for (let i = 0; !supported && i < 5; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    supported = await detectTransactions();
+  }
+  if (!supported) {
+    const message = "o Mongo não é uma réplica, então as gravações em mais de um passo (histórico, apagar categoria) não são atômicas. Use o docker-compose do projeto (réplica de um nó).";
+    // Em produção seguir sem a garantia seria falhar em silêncio.
+    if (process.env.NODE_ENV === "production") throw new Error(`Mongo sem transações: ${message}`);
+    console.warn(`Aviso: ${message}`);
+  }
 }
 
 export async function disconnectDb() {

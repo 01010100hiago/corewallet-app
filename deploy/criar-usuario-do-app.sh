@@ -4,6 +4,7 @@
 # Depois ponha MONGO_APP_PASSWORD=SENHA_NOVA no .env e, no compose, use na DATABASE_URI o usuário
 # `corewallet_app` e essa senha (veja docs/DEPLOY.md). A senha só pode ter letras e números.
 set -eu
+# Rode depois do Mongo saudável (docker compose up -d --wait mongo): sem primário a criação do usuário falha.
 senha="${1:?uso: $0 SENHA_NOVA (só letras e números)}"
 case "$senha" in *[!A-Za-z0-9]*) echo "a senha só pode ter letras e números" >&2; exit 1 ;; esac
 docker compose exec -T mongo sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin corewallet --eval "

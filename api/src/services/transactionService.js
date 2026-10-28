@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { DEFAULT_CATEGORY, dayKeyOf, dayRange, isCustomCategoryId, monthRange } from "@corewallet/shared";
 import Transaction from "../models/Transaction.js";
 import TransactionEvent from "../models/TransactionEvent.js";
+import { inTransaction } from "../lib/dbTransaction.js";
 import * as categoryService from "./categoryService.js";
 
 export const LIST_LIMIT = 500;
@@ -26,8 +27,8 @@ const categoryOrDefault = { $ifNull: ["$category", DEFAULT_CATEGORY] };
 const alive = { deletedAt: null };
 
 const snapshotOf = (t) => ({ type: t.type, valueCents: t.valueCents, description: t.description, category: t.category ?? DEFAULT_CATEGORY });
-const record = (t, action, at = new Date(), changes = undefined) =>
-  TransactionEvent.create({ userId: t.userId, transactionId: t._id, action, at, snapshot: snapshotOf(t), changes });
+const record = (t, action, at = new Date(), changes = undefined, session = undefined) =>
+  TransactionEvent.create([{ userId: t.userId, transactionId: t._id, action, at, snapshot: snapshotOf(t), changes }], { session });
 
 async function assertCategory(userId, type, category) {
   if (!(await categoryService.isUsable(userId, type, category))) {
@@ -36,20 +37,25 @@ async function assertCategory(userId, type, category) {
 }
 
 // Apagar uma categoria pode acontecer entre conferir a categoria e gravar o lançamento. Depois de
-// gravar, confere de novo: se a categoria sumiu, o lançamento vai para a padrão ("Outros"). Quem
-// apaga a categoria varre os lançamentos depois de apagá-la, então um dos dois sempre pega.
-export async function settleCategory(t) {
-  if (!isCustomCategoryId(t.category) || (await categoryService.isUsable(t.userId, t.type, t.category))) return t;
-  await Transaction.updateOne({ _id: t._id, category: t.category }, { $set: { category: DEFAULT_CATEGORY } });
+// gravar, confere de novo: se a categoria sumiu, o lançamento vai para a padrão ("Outros"). Numa transação
+// a conferência também grava na categoria (claimCategory), então ela conflita com a exclusão simultânea e
+// uma das duas é repetida já enxergando a outra; sem transação, quem apaga varre os lançamentos depois.
+export async function settleCategory(t, session = undefined) {
+  if (!isCustomCategoryId(t.category) || (await categoryService.claimCategory(t.userId, t.type, t.category, session))) return t;
+  await Transaction.updateOne({ _id: t._id, category: t.category }, { $set: { category: DEFAULT_CATEGORY } }, { session });
   t.category = DEFAULT_CATEGORY;
   return t;
 }
 
 export async function create(userId, { type, value, description, category }) {
   await assertCategory(userId, type, category);
-  const transaction = await settleCategory(await Transaction.create({ userId, type, valueCents: value, description, category }));
-  await record(transaction, "created", transaction.createdAt);
-  return transaction;
+  // O lançamento e o evento "criado" valem juntos ou não valem.
+  return inTransaction(async (session) => {
+    const [created] = await Transaction.create([{ userId, type, valueCents: value, description, category }], { session });
+    const transaction = await settleCategory(created, session);
+    await record(transaction, "created", transaction.createdAt, undefined, session);
+    return transaction;
+  });
 }
 
 // Só devolve o lançamento se ele for do usuário: id de outra pessoa é igual a "não existe".
@@ -87,18 +93,21 @@ export async function update(userId, id, { value, description, category }) {
     }));
     if (changes.length === 0) return current;
 
-    const updated = await Transaction.findOneAndUpdate(
-      // category: null também casa com lançamento antigo, que não tem o campo.
-      { _id: current._id, userId, ...alive, archivedAt: null, valueCents: current.valueCents, description: current.description, category: current.category ?? null },
-      { $set: next },
-      { returnDocument: "after", runValidators: true }
-    );
-    if (updated) {
-      await settleCategory(updated);
-      for (const c of changes) if (c.field === "category") c.to = updated.category;
-      await record(updated, "edited", new Date(), changes);
-      return updated;
-    }
+    // A alteração e o evento do histórico valem juntos ou não valem.
+    const updated = await inTransaction(async (session) => {
+      const doc = await Transaction.findOneAndUpdate(
+        // category: null também casa com lançamento antigo, que não tem o campo.
+        { _id: current._id, userId, ...alive, archivedAt: null, valueCents: current.valueCents, description: current.description, category: current.category ?? null },
+        { $set: next },
+        { returnDocument: "after", runValidators: true, session }
+      );
+      if (!doc) return null;
+      await settleCategory(doc, session);
+      const final = changes.map((c) => (c.field === "category" ? { ...c, to: doc.category } : c));
+      await record(doc, "edited", new Date(), final, session);
+      return doc;
+    });
+    if (updated) return updated;
   }
   throw new TransactionError("Este lançamento mudou enquanto você editava. Tente de novo.", 409);
 }
@@ -108,11 +117,12 @@ export async function update(userId, id, { value, description, category }) {
 export async function remove(userId, id) {
   if (!mongoose.isValidObjectId(id)) return false;
   const at = new Date();
-  const deleted = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: null }, { $set: { deletedAt: at } }, { returnDocument: "after" });
-  if (deleted) {
-    await record(deleted, "deleted", at);
-    return true;
-  }
+  const deleted = await inTransaction(async (session) => {
+    const doc = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: null }, { $set: { deletedAt: at } }, { returnDocument: "after", session });
+    if (doc) await record(doc, "deleted", at, undefined, session);
+    return doc;
+  });
+  if (deleted) return true;
   // Não achou: ou não existe, ou está arquivado (e então a resposta é outra).
   if (await Transaction.exists({ _id: id, userId, ...alive, archivedAt: { $ne: null } })) throw archivedError();
   return false;
@@ -123,23 +133,29 @@ export async function remove(userId, id) {
 export async function archive(userId, id) {
   if (!mongoose.isValidObjectId(id)) return null;
   const at = new Date();
-  const archived = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: null }, { $set: { archivedAt: at } }, { returnDocument: "after" });
-  if (archived) await record(archived, "archived", at);
-  return archived;
+  return inTransaction(async (session) => {
+    const archived = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: null }, { $set: { archivedAt: at } }, { returnDocument: "after", session });
+    if (archived) await record(archived, "archived", at, undefined, session);
+    return archived;
+  });
 }
 
 export async function unarchive(userId, id) {
   if (!mongoose.isValidObjectId(id)) return null;
-  const restored = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: { $ne: null } }, { $set: { archivedAt: null } }, { returnDocument: "after" });
-  if (restored) await record(restored, "unarchived");
-  return restored;
+  return inTransaction(async (session) => {
+    const restored = await Transaction.findOneAndUpdate({ _id: id, userId, ...alive, archivedAt: { $ne: null } }, { $set: { archivedAt: null } }, { returnDocument: "after", session });
+    if (restored) await record(restored, "unarchived", undefined, undefined, session);
+    return restored;
+  });
 }
 
 export async function restore(userId, id) {
   if (!mongoose.isValidObjectId(id)) return null;
-  const restored = await Transaction.findOneAndUpdate({ _id: id, userId, deletedAt: { $ne: null } }, { $set: { deletedAt: null } }, { returnDocument: "after" });
-  if (restored) await record(restored, "restored");
-  return restored;
+  return inTransaction(async (session) => {
+    const restored = await Transaction.findOneAndUpdate({ _id: id, userId, deletedAt: { $ne: null } }, { $set: { deletedAt: null } }, { returnDocument: "after", session });
+    if (restored) await record(restored, "restored", undefined, undefined, session);
+    return restored;
+  });
 }
 
 // Eventos de um lançamento (do mais novo para o mais antigo); null se não for do usuário.

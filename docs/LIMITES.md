@@ -39,10 +39,9 @@ O que ainda não existe ou funciona de forma simplificada.
 ## Histórico
 
 - Lançamentos criados antes do histórico existir não têm o evento "criado"; a tela diz isso.
-- **Gravações em mais de um passo, sem transação do banco** (o Mongo roda sem réplica):
-  - O histórico é gravado logo depois da alteração. Se o servidor cair entre as duas gravações, a alteração vale e
-    o último evento pode faltar.
-  - Apagar uma categoria move os lançamentos, grava o histórico e só então apaga a categoria. Se o servidor cair no
-    meio, alguns lançamentos podem ter mudado de categoria sem o evento correspondente; como a categoria só some depois
-    de tudo movido, dá para repetir a exclusão. Um lançamento criado durante a exclusão é conferido de novo e vai para
-    "Outros" se a categoria já sumiu.
+- **Gravações em mais de um passo são transações do banco** (tudo ou nada): alterar, excluir, arquivar e restaurar um
+  lançamento valem junto com o evento do histórico, e apagar uma categoria (mover os lançamentos, gravar o histórico,
+  apagar e acertar o contador) é uma operação só. Se o servidor cair no meio, nada fica pela metade. Isso exige o Mongo
+  como **réplica** (o `docker-compose.yml` já sobe uma de um nó). Em um Mongo solto a API funciona, mas sem essa garantia, e
+  avisa no log ao conectar. Uma categoria com milhares de lançamentos pode passar do limite de tempo de uma transação
+  (60 s); o uso pessoal fica muito abaixo disso.

@@ -8,7 +8,7 @@ Tudo se configura pelo `.env` (copie de [`.env.example`](../.env.example); ele n
 | Variável | Para quê | Padrão |
 |---|---|---|
 | `MONGO_ROOT_USER`, `MONGO_ROOT_PASSWORD` | Usuário e senha que o `docker compose` cria no Mongo (senha só com letras e números) | obrigatórias |
-| `DATABASE_URI` | Endereço do Mongo. No compose já vem pronto; só é preciso ao rodar a API fora do Docker | obrigatória |
+| `DATABASE_URI` | Endereço do Mongo. No compose já vem pronto (com `replicaSet=rs0`); só é preciso ao rodar a API fora do Docker, e então com `directConnection=true` | obrigatória |
 | `JWT_SECRET` | Chave dos tokens de acesso. Mínimo de 32 caracteres (`openssl rand -hex 48`) | obrigatória |
 | `WEB_ORIGIN` | Endereço do site (usado na checagem de origem e nos links de email) | obrigatória; no compose, `http://localhost:8080` |
 | `PORT` | Porta da API | `4000` |

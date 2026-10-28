@@ -19,9 +19,12 @@ npm run test:e2e      # sobe a API e o front sozinho
 
 - Os testes da API precisam de `TEST_DATABASE_URI` apontando para um banco **terminado em `_test`** (eles apagam os
   dados). Cada arquivo usa o próprio banco.
-- Os de ponta a ponta usam o banco `corewallet_e2e` (`E2E_DATABASE_URI` para trocar) e desligam o limite de
+- Os de ponta a ponta usam o banco `corewallet_e2e` (`E2E_DATABASE_URI` para trocar; contra o Mongo do compose, termine a URI com `directConnection=true`) e desligam o limite de
   tentativas com `RATE_LIMITS=off`. Antes, uma vez: `npx playwright install chromium`.
-- Com Mongo autenticado, ponha usuário e senha na URI: `mongodb://USUARIO:SENHA@127.0.0.1:27017/corewallet_test?authSource=admin`.
+- Com Mongo autenticado, ponha usuário e senha na URI: `mongodb://USUARIO:SENHA@127.0.0.1:27017/corewallet_test?authSource=admin&directConnection=true`.
+- Os testes de **atomicidade** (`api/test/atomicity.test.js`) derrubam a segunda gravação no meio e conferem que nada
+  ficou pela metade. Precisam do Mongo como **réplica** (o do `docker-compose.yml`, ou o do script do CI:
+  `.github/scripts/subir-mongo.sh`); em um Mongo solto eles são pulados.
 
 ## Imagens do README
 

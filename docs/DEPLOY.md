@@ -110,7 +110,7 @@ deploy/criar-usuario-do-app.sh SENHA_NOVA     # só letras e números
 ```
 
 Ponha `MONGO_APP_PASSWORD=SENHA_NOVA` no `.env` e, no `docker-compose.yml`, troque a `DATABASE_URI` da API por
-`mongodb://corewallet_app:${MONGO_APP_PASSWORD}@mongo:27017/corewallet?authSource=corewallet`. O exemplo em
+`mongodb://corewallet_app:${MONGO_APP_PASSWORD}@mongo:27017/corewallet?authSource=corewallet&replicaSet=rs0`. O exemplo em
 [`deploy/lab/docker-compose.yml`](../deploy/lab/docker-compose.yml) já faz isso. O root continua existindo para backup
 e manutenção.
 
@@ -125,6 +125,27 @@ docker compose exec -T mongo sh -c 'mongorestore -u "$MONGO_INITDB_ROOT_USERNAME
 ```
 
 O arquivo tem hashes de senha e dados financeiros: guarde-o com permissão restrita (o `backup.sh` já grava com `umask 077`).
+
+## O Mongo é uma réplica de um nó
+
+O `docker-compose.yml` sobe o Mongo como réplica de **um** nó (`rs0`), porque só assim ele oferece transações (as
+gravações "tudo ou nada" do histórico e da exclusão de categorias). Não muda nada para quem usa: é um nó só, no mesmo
+volume, com o mesmo usuário root. O nó se inicia sozinho (o healthcheck cria a réplica no primeiro início) e a chave
+interna é gerada a cada início.
+
+- **Já tenho dados em um Mongo antigo (solto):** basta `docker compose up -d` com o compose novo. O volume sobe como
+  réplica sem perder nada. Faça uma cópia antes (seção Backup).
+- **Voltar atrás:** guarde o compose e a `DATABASE_URI` antigos antes. Para desfazer, volte os dois **juntos** e rode
+  `docker compose up -d` (um Mongo solto aceita o volume da réplica). Nunca reverta só o Mongo mantendo
+  `replicaSet=rs0` na URI da API: ela não conecta.
+- **O nome do serviço fica gravado no volume:** a réplica guarda o endereço `mongo:27017`. Se renomear o serviço ou
+  montar o volume em outro compose, o nó não vira primário; mantenha o nome `mongo` (ou reconfigure com
+  `rs.reconfig(..., {force: true})`).
+- **Troca em produção:** o Mongo e a API reiniciam, então há uns 30 s fora do ar. Faça o backup antes e rode
+  `deploy/criar-usuario-do-app.sh` só depois do Mongo saudável (`docker compose up -d --wait mongo`).
+- **Em produção a API recusa subir** se o Mongo não for uma réplica (para não perder a garantia em silêncio).
+- **Rodar a API ou os testes fora do Docker:** use `directConnection=true` na URI, porque o nó se apresenta como
+  `mongo:27017`, nome que só existe dentro do Docker (veja o `.env.example`).
 
 ## Atenção com o kernel do servidor
 

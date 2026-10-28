@@ -8,7 +8,7 @@ const CI = Boolean(process.env.CI);
 // Banco só dos testes de ponta a ponta. Os usuários criados aqui são únicos por execução.
 // Os emails da API (confirmação de cadastro) vão para um arquivo; começa vazio a cada execução.
 rmSync(OUTBOX, { force: true });
-const database = process.env.E2E_DATABASE_URI ?? "mongodb://127.0.0.1:27017/corewallet_e2e";
+const database = process.env.E2E_DATABASE_URI ?? "mongodb://127.0.0.1:27017/corewallet_e2e?directConnection=true";
 
 export default defineConfig({
   testDir: "./tests",

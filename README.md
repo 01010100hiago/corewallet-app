@@ -61,7 +61,7 @@ docker compose up -d --build
 Desenvolvimento (Mongo no Docker, API e front no seu computador, com recarga automática), em http://localhost:5173:
 
 ```bash
-docker compose up -d mongo
+docker compose up -d --wait mongo
 npm run dev:api
 npm run dev:web
 ```

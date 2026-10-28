@@ -9,14 +9,33 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina no .env}
     volumes:
       - mongo-data:/data/db
+    # Réplica de UM nó (rs0): só assim o Mongo oferece transações (gravações "tudo ou nada"). A chave interna é
+    # gerada a cada início (com um nó só ela não precisa ser guardada) e o nó se inicia sozinho no healthcheck.
+    # Os dados e o usuário root continuam os mesmos: um volume antigo do Mongo solto sobe como réplica sem perder nada.
+    command:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 756 > /tmp/keyfile
+        chmod 400 /tmp/keyfile && chown mongodb:mongodb /tmp/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all
     # Só o próprio computador acessa o banco (para rodar a API fora do Docker).
     ports:
       - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # Saudável = é o primário da réplica. Se a réplica ainda não existe (primeiro início), cria.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval
+          "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) };
+          quit(db.hello().isWritablePrimary ? 0 : 1)"
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 8
+      start_period: 30s
 
   api:
     build:
@@ -25,7 +44,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 4000
-      DATABASE_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/corewallet?authSource=admin
+      DATABASE_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/corewallet?authSource=admin&replicaSet=rs0
       JWT_SECRET: ${JWT_SECRET:?defina no .env}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       # Cookie "Secure" só funciona em HTTPS. Use true quando for publicar.

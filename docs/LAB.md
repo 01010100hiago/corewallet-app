@@ -14,7 +14,7 @@ referência; o passo a passo geral está em [Publicar](DEPLOY.md). Os nomes abai
 | Banco | volume `corewallet_dados-mongo`, sem porta publicada |
 
 Configuração específica: `TRUST_PROXY=1` com `realip-cloudflare.conf` no nginx (o IP da pessoa vem do `CF-Connecting-IP`, só de redes privadas), a API entrando no Mongo com um usuário só dela (`MONGO_APP_PASSWORD`),
-`COOKIE_SECURE=true`, `TOTP_ENCRYPTION_KEY` própria. Sem as chaves do Turnstile, vale a verificação automática do
+`COOKIE_SECURE=true`, `TOTP_ENCRYPTION_KEY` própria. O Mongo roda como réplica de um nó (transações). Sem as chaves do Turnstile, vale a verificação automática do
 CoreWallet. Sem SMTP, a confirmação de email fica desligada e o cadastro já nasce ativo.
 
 ## Atualizar

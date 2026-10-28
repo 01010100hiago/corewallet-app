@@ -13,11 +13,30 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina MONGO_ROOT_PASSWORD no arquivo .env}
     volumes:
       - dados-mongo:/data/db
+    # Réplica de UM nó (rs0): só assim o Mongo oferece transações (gravações "tudo ou nada"). A chave interna é
+    # gerada a cada início (com um nó só ela não precisa ser guardada) e o nó se inicia sozinho no healthcheck.
+    # Os dados e o usuário root continuam os mesmos: um volume antigo do Mongo solto sobe como réplica sem perder nada.
+    command:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 756 > /tmp/keyfile
+        chmod 400 /tmp/keyfile && chown mongodb:mongodb /tmp/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # Saudável = é o primário da réplica. Se a réplica ainda não existe (primeiro início), cria.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval
+          "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) };
+          quit(db.hello().isWritablePrimary ? 0 : 1)"
       interval: 10s
-      timeout: 5s
-      retries: 6
+      timeout: 10s
+      retries: 8
+      start_period: 30s
     networks: [default]          # banco NUNCA na rede edge, e sem porta publicada
 
   api:
@@ -30,7 +49,7 @@ services:
       PORT: "4000"
       NODE_ENV: production
       # Usuário só do app (readWrite no banco corewallet), não o root: veja deploy/criar-usuario-do-app.sh.
-      DATABASE_URI: mongodb://corewallet_app:${MONGO_APP_PASSWORD:?defina MONGO_APP_PASSWORD no arquivo .env}@mongo:27017/corewallet?authSource=corewallet
+      DATABASE_URI: mongodb://corewallet_app:${MONGO_APP_PASSWORD:?defina MONGO_APP_PASSWORD no arquivo .env}@mongo:27017/corewallet?authSource=corewallet&replicaSet=rs0
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
       WEB_ORIGIN: ${WEB_ORIGIN:?defina WEB_ORIGIN no arquivo .env}
       # Sempre atrás de HTTPS (Cloudflare): o cookie de sessão só vai por conexão segura.
