@@ -1,0 +1,22 @@
+{
+  "name": "corewallet",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "api",
+    "web",
+    "e2e"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w api",
+    "dev:web": "npm run dev -w web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test -w shared -w api -w web",
+    "build": "npm run build --workspaces --if-present",
+    "test:e2e": "npm run test -w e2e"
+  }
+}

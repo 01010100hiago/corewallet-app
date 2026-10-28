@@ -1,0 +1,104 @@
+# CoreWallet · exemplo de servidor caseiro com vários projetos atrás de um túnel (pasta /srv/lab/projects/<nome>).
+# Exige uma rede externa chamada "edge", onde fica o cloudflared: crie com  docker network create edge
+# O código vem do GitHub e fica em app/ (git -C app pull --ff-only). Este compose é do lab:
+# o do repositório (app/docker-compose.yml) serve para rodar na máquina de desenvolvimento.
+name: corewallet
+
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: corewallet-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-corewallet}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina MONGO_ROOT_PASSWORD no arquivo .env}
+    volumes:
+      - dados-mongo:/data/db
+    # Réplica de UM nó (rs0): só assim o Mongo oferece transações (gravações "tudo ou nada"). A chave interna é
+    # gerada a cada início (com um nó só ela não precisa ser guardada) e o nó se inicia sozinho no healthcheck.
+    # Os dados e o usuário root continuam os mesmos: um volume antigo do Mongo solto sobe como réplica sem perder nada.
+    command:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 756 > /tmp/keyfile
+        chmod 400 /tmp/keyfile && chown mongodb:mongodb /tmp/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all
+    healthcheck:
+      # Saudável = é o primário da réplica. Se a réplica ainda não existe (primeiro início), cria.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval
+          "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) };
+          quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 10s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+    networks: [default]          # banco NUNCA na rede edge, e sem porta publicada
+
+  api:
+    build:
+      context: ./app
+      dockerfile: api/Dockerfile
+    container_name: corewallet-api
+    restart: unless-stopped
+    environment:
+      PORT: "4000"
+      NODE_ENV: production
+      # Usuário só do app (readWrite no banco corewallet), não o root: veja deploy/criar-usuario-do-app.sh.
+      DATABASE_URI: mongodb://corewallet_app:${MONGO_APP_PASSWORD:?defina MONGO_APP_PASSWORD no arquivo .env}@mongo:27017/corewallet?authSource=corewallet&replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:?defina WEB_ORIGIN no arquivo .env}
+      # Sempre atrás de HTTPS (Cloudflare): o cookie de sessão só vai por conexão segura.
+      COOKIE_SECURE: "true"
+      # Cadeia até a API: navegador -> Cloudflare -> cloudflared -> nginx (web) -> API. O nginx lê o
+      # IP da pessoa no CF-Connecting-IP (realip-cloudflare.conf) e entrega um valor só: 1 salto.
+      TRUST_PROXY: "1"
+      # Login com Google e captcha: vazios = desligados (só login por senha). Para ligar, ponha
+      # as chaves reais no .env (veja docs/CONFIGURACAO.md no repositório).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/CONFIGURACAO.md.
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-}
+      # Chave só do 2FA (opcional, 32+ caracteres). Sem ela, deriva do JWT_SECRET.
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [default]
+
+  web:
+    build:
+      context: ./app
+      dockerfile: web/Dockerfile
+    container_name: corewallet-web    # nome único: é assim que o cloudflared o encontra
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      # O IP da pessoa vem do CF-Connecting-IP (só de redes privadas); a API recebe um IP só (TRUST_PROXY=1).
+      - ./app/web/realip-cloudflare.conf:/etc/nginx/realip/realip.conf:ro
+    ports:
+      # Só no localhost do lab, para conferir no próprio servidor. Quem chega de fora é o túnel.
+      - "127.0.0.1:5191:8080"
+    networks: [default, edge]
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  dados-mongo:

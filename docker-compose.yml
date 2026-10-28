@@ -1,0 +1,95 @@
+name: corewallet
+
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?defina no .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina no .env}
+    volumes:
+      - mongo-data:/data/db
+    # Réplica de UM nó (rs0): só assim o Mongo oferece transações (gravações "tudo ou nada"). A chave interna é
+    # gerada a cada início (com um nó só ela não precisa ser guardada) e o nó se inicia sozinho no healthcheck.
+    # Os dados e o usuário root continuam os mesmos: um volume antigo do Mongo solto sobe como réplica sem perder nada.
+    command:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 756 > /tmp/keyfile
+        chmod 400 /tmp/keyfile && chown mongodb:mongodb /tmp/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all
+    # Só o próprio computador acessa o banco (para rodar a API fora do Docker).
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    healthcheck:
+      # Saudável = é o primário da réplica. Se a réplica ainda não existe (primeiro início), cria.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval
+          "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) };
+          quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 10s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      DATABASE_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/corewallet?authSource=admin&replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:?defina no .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      # Cookie "Secure" só funciona em HTTPS. Use true quando for publicar.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Quantos proxies ficam entre o navegador e a API. O nginx do web entrega um IP só já resolvido,
+      # então o valor é 1 (inclusive atrás de um túnel da Cloudflare, com REALIP_CONF no web).
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Verificação automática do CoreWallet (usada quando não há chaves do Turnstile): vazios = padrão.
+      CAPTCHA_POW: ${CAPTCHA_POW:-}
+      POW_MAX_NUMBER: ${POW_MAX_NUMBER:-}
+      # Login com Google e captcha da Cloudflare: vazios = desligados.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Envio de email (confirmação de cadastro). Vazios = sem envio e sem confirmação. Veja docs/CONFIGURACAO.md.
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-}
+      # Chave só do 2FA (opcional, 32+ caracteres). Sem ela, deriva do JWT_SECRET.
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
+      # "production" recusa as chaves de teste da Cloudflare. Para testar com elas
+      # no seu computador, ponha NODE_ENV_API=development no .env.
+      NODE_ENV: ${NODE_ENV_API:-production}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    volumes:
+      # IP real da pessoa. Atrás de um túnel da Cloudflare: REALIP_CONF=./web/realip-cloudflare.conf no .env.
+      - ${REALIP_CONF:-./web/realip-nenhum.conf}:/etc/nginx/realip/realip.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
