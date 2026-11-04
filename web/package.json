@@ -17,7 +17,7 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
     "@vitejs/plugin-react-swc": "^4.3.3",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
@@ -29,13 +29,13 @@
   "dependencies": {
     "@corewallet/shared": "0.1.0",
     "@hookform/resolvers": "^5.9.2",
-    "axios": "^1.20.0",
+    "axios": "^1.21.0",
     "dayjs": "^1.11.23",
     "js-cookie": "^3.0.8",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.91.0",
-    "react-router-dom": "^7.18.4",
+    "react-router-dom": "^7.18.5",
     "zod": "^4.6.7"
   }
 }
